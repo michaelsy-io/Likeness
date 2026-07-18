@@ -26,6 +26,24 @@ def bounded_text(value: str | None, limit: int = 280) -> str:
     return re.sub(r"\s+", " ", (value or "").strip())[:limit]
 
 
+def provider_text(value: Any, limit: int = 280, fallback: str = "") -> str:
+    """Turn variable SerpApi display fields into safe, human-readable text."""
+    if isinstance(value, str):
+        text = value
+    elif isinstance(value, (int, float)):
+        text = str(value)
+    elif isinstance(value, dict):
+        text = ""
+        for key in ("display_price", "extracted_price", "price", "value", "text", "amount"):
+            candidate = value.get(key)
+            if isinstance(candidate, (str, int, float)):
+                text = str(candidate)
+                break
+    else:
+        text = ""
+    return bounded_text(text, limit) or fallback
+
+
 def domain_name(url: str) -> str:
     return urlparse(url).netloc.lower().removeprefix("www.") or "Unknown source"
 
@@ -80,7 +98,7 @@ def clean_lens_matches(payload: dict[str, Any], official_domains: set[str]) -> l
                     "title": bounded_text(str(title), 220) or "Untitled visual match",
                     "url": url,
                     "domain": domain,
-                    "price": item.get("price") or item.get("extracted_price") or "Not listed",
+                    "price": provider_text(item.get("price") or item.get("extracted_price"), 80, "Not listed"),
                     "thumbnail": item.get("thumbnail") or item.get("image"),
                     "platform": classify_platform(url),
                     "source_type": source_type,
@@ -185,7 +203,9 @@ class NoticeTarget(BaseModel):
     url: str = Field(max_length=2048)
     domain: str = Field(max_length=255)
     platform: str = Field(max_length=80)
-    price: str = Field(default="Not listed", max_length=80)
+    # Marketplace providers sometimes send price as a structured object.
+    # Normalize it before it reaches the drafting prompt.
+    price: Any = "Not listed"
     confidence: int = Field(ge=0, le=100)
     threat_level: str = Field(max_length=20)
     rationale: str = Field(max_length=280)
@@ -204,6 +224,7 @@ class NoticeRequest(BaseModel):
 
 async def draft_notice_with_openai(request: NoticeRequest) -> dict[str, str]:
     target = request.target.model_dump()
+    target["price"] = provider_text(target.get("price"), 80, "Not listed")
     prompt = (
         "Draft a detailed, professional enforcement notice as plain text for human legal review. "
         "It is not legal advice, must not state that infringement is proven, and must not fabricate statutes, "

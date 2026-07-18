@@ -150,9 +150,12 @@
 
     function selectedMatch() { return state.selectedIndex === null ? null : state.report.matches[state.selectedIndex]; }
     function selectTarget(index) { state.selectedIndex = index; state.document = null; $('#documentPanel').classList.add('hidden'); renderReport(); }
+    function displayText(value, fallback = 'Not listed') { if (typeof value === 'string' || typeof value === 'number') return String(value); if (value && typeof value === 'object') return String(value.display_price || value.extracted_price || value.price || value.value || value.text || fallback); return fallback; }
+    function noticeTarget(match) { return { title: String(match.title || 'Untitled listing'), url: String(match.url || ''), domain: String(match.domain || ''), platform: String(match.platform || 'Web publisher'), price: displayText(match.price), confidence: Number(match.confidence || 0), threat_level: String(match.threat_level || 'Moderate'), rationale: String(match.rationale || 'Similarity signal requires human review.'), timestamp: String(match.timestamp || '') }; }
 
     function renderReport() {
       const report = state.report; const target = selectedMatch();
+      report.matches.forEach(match => { match.price = displayText(match.price); });
       $('#summary').textContent = report.summary; $('#overallScore').textContent = `${report.overall_confidence}%`; $('#results').classList.remove('hidden');
       $('#selectionPanel').classList.toggle('hidden', !target);
       if (target) { $('#selectedTarget').textContent = target.title; $('#selectedTargetMeta').textContent = `${target.platform} · ${target.domain} · ${target.confidence}% risk signal`; }
@@ -167,7 +170,7 @@
       clearError(); $('#generateNotice').disabled = true; $('#generateNotice').textContent = 'Drafting notice…';
       try {
         setStatus('Preparing selected enforcement notice', 82, 'Legal draft');
-        const response = await fetch('/api/notices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ route: state.route, ...state.report.case, target }) });
+        const response = await fetch('/api/notices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ route: state.route, ...state.report.case, target: noticeTarget(target) }) });
         const payload = await readJson(response); if (!response.ok) throw new Error(payload.detail || 'Notice drafting failed.');
         state.document = payload.document; setStatus('Targeted enforcement draft ready', 100, 'Legal draft', false); renderDocument();
       } catch (error) { setStatus('Notice needs attention', 100, 'Request failed', false); showError(error.message); }
