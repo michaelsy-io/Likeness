@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Likeness — Asset Protection</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { background:#09090b; color:#f4f4f5; }
+    .grid-bg { background-image:linear-gradient(rgba(255,255,255,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.026) 1px,transparent 1px); background-size:42px 42px; }
+    .thin { border:1px solid rgba(255,255,255,.10); }
+    .sheen { background:linear-gradient(118deg,rgba(255,255,255,.055),transparent 25%,rgba(255,255,255,.02)); }
+    .drop { border:1px dashed rgba(255,255,255,.25); background:radial-gradient(circle at 50% 0%,rgba(99,102,241,.17),transparent 43%),rgba(24,24,27,.5); }
+    .drop:hover,.drop.over { transform:scale(1.008); border-color:rgba(165,180,252,.85); box-shadow:0 0 64px rgba(99,102,241,.18); }
+    .pulse { animation:pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 50% { box-shadow:0 0 36px rgba(129,140,248,.30); border-color:rgba(165,180,252,.45); } }
+    .modal { backdrop-filter:blur(16px); background:rgba(9,9,11,.78); }
+    ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-thumb { background:#27272a; border-radius:99px; }
+  </style>
+</head>
+<body class="min-h-screen grid-bg selection:bg-indigo-400/30">
+  <main class="max-w-6xl mx-auto px-5 py-7 md:py-10">
+    <header class="flex items-center justify-between mb-12">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-white text-zinc-950 grid place-content-center font-black">L</div>
+        <span class="font-semibold tracking-tight">Likeness</span>
+        <span class="text-[10px] tracking-[.16em] text-zinc-500 uppercase thin px-2 py-1 rounded-full">Protection OS</span>
+      </div>
+      <div class="thin rounded-lg px-3 py-2 text-xs text-zinc-400 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Secure API relay</div>
+    </header>
+
+    <section id="intake" class="text-center max-w-2xl mx-auto">
+      <p class="text-indigo-300 text-xs font-medium tracking-[.20em] uppercase mb-4">Digital asset intelligence</p>
+      <h1 class="text-4xl md:text-6xl font-semibold tracking-[-.055em] leading-[.97]">See where your<br>likeness travels.</h1>
+      <p class="text-zinc-400 mt-6 leading-relaxed">Identify potentially unauthorized visual reuse, organize evidence, and prepare a review-ready enforcement package.</p>
+
+      <div class="flex justify-center gap-2 mt-8" id="routeButtons">
+        <button data-route="commercial" class="route px-4 py-2 rounded-lg text-sm thin bg-white text-zinc-950">Commercial brand protection</button>
+        <button data-route="personal" class="route px-4 py-2 rounded-lg text-sm thin text-zinc-400">Personal identity security</button>
+      </div>
+
+      <label id="dropzone" class="drop mt-8 h-72 rounded-2xl flex flex-col justify-center items-center cursor-pointer transition duration-300 relative overflow-hidden">
+        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
+        <img id="preview" alt="Uploaded asset preview" class="hidden absolute inset-0 w-full h-full object-cover opacity-55" />
+        <div id="dropCopy" class="text-center relative">
+          <div class="w-12 h-12 rounded-xl thin mx-auto mb-4 grid place-content-center bg-zinc-900/80 text-lg">↑</div>
+          <p class="font-medium">Drop an asset to begin</p>
+          <p class="text-sm text-zinc-500 mt-1">JPG, PNG or WebP · 10 MB maximum</p>
+        </div>
+      </label>
+      <button id="analyzeButton" disabled class="mt-5 w-full py-3 rounded-xl bg-indigo-400 text-zinc-950 font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition hover:bg-indigo-300">Run protected analysis</button>
+      <p class="text-[11px] text-zinc-600 mt-4">Analysis runs securely on the Likeness server. API credentials never enter your browser.</p>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <div id="tracker" class="thin rounded-2xl p-5 sheen mb-6">
+        <div class="flex items-center justify-between gap-4">
+          <div><p class="text-xs text-zinc-500 uppercase tracking-[.16em]">Case analysis</p><p id="statusText" class="font-medium mt-1">Secure asset intake complete</p></div>
+          <span id="modeBadge" class="text-xs px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400">Preparing</span>
+        </div>
+        <div class="h-1 bg-zinc-800 rounded-full overflow-hidden mt-5"><div id="progress" class="h-full bg-gradient-to-r from-indigo-400 to-violet-300 w-[12%] transition-all duration-500"></div></div>
+      </div>
+
+      <div id="results" class="hidden">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+          <div><p class="text-xs text-indigo-300 uppercase tracking-[.16em]">Threat intelligence report</p><h2 class="text-3xl font-semibold tracking-tight mt-1">Evidence overview</h2><p id="summary" class="text-zinc-400 text-sm mt-2"></p></div>
+          <div class="thin rounded-xl px-4 py-3 min-w-36"><span class="text-zinc-500 text-xs">AI match confidence</span><p id="overallScore" class="text-2xl font-semibold">—</p></div>
+        </div>
+        <div class="grid lg:grid-cols-2 gap-4" id="cards"></div>
+        <section class="thin rounded-2xl p-5 mt-6 sheen">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div><p id="documentTitle" class="text-xs text-indigo-300 tracking-[.14em] uppercase"></p><p class="text-zinc-500 text-sm mt-1">Review and export your draft enforcement package.</p></div>
+            <button id="exportPdf" class="rounded-lg bg-white text-zinc-950 text-sm font-medium px-4 py-2 hover:bg-zinc-200">Export Official PDF</button>
+          </div>
+          <pre id="documentText" class="font-sans whitespace-pre-wrap text-sm leading-6 text-zinc-300 mt-5 max-h-64 overflow-auto"></pre>
+        </section>
+      </div>
+      <div id="errorBox" class="hidden thin rounded-xl p-5 mt-5 text-red-200 bg-red-500/5"></div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+    const state = { route: 'commercial', file: null, previewUrl: null, report: null };
+    const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+
+    function setStatus(text, progress, mode, active = true) {
+      $('#statusText').textContent = text;
+      $('#progress').style.width = `${progress}%`;
+      $('#modeBadge').textContent = mode;
+      $('#tracker').classList.toggle('pulse', active);
+    }
+
+    function chooseFile(file) {
+      if (!file) return;
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return showError('Please use a JPG, PNG, or WebP image.');
+      if (file.size > 10 * 1024 * 1024) return showError('Images must be 10 MB or smaller.');
+      state.file = file;
+      if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
+      state.previewUrl = URL.createObjectURL(file);
+      $('#preview').src = state.previewUrl;
+      $('#preview').classList.remove('hidden');
+      $('#dropCopy').innerHTML = `<p class="font-medium">${escapeHtml(file.name)}</p><p class="text-sm text-zinc-300 mt-1">Ready for protected analysis</p>`;
+      $('#analyzeButton').disabled = false;
+      $('#errorBox').classList.add('hidden');
+    }
+
+
+    function draftDocument(matches) {
+      const list = matches.map(m => `• ${m.title} — ${m.url}`).join('\n');
+      if (state.route === 'commercial') return { title:'IP / COPYRIGHT CEASE & DESIST NOTICE', body:`Re: Unauthorized use of protected asset — ${state.file.name}\n\nTo whom it may concern:\n\nThis notice concerns the apparent unauthorized display, reproduction, or commercial use of the above referenced asset at the following locations:\n${list}\n\nYou are directed to immediately cease the disputed use, remove all copies under your control, preserve relevant records, and confirm compliance in writing. This automated notice is a draft for rights-holder review and does not constitute legal advice.` };
+      return { title:'COMPUTER-RELATED IDENTITY THEFT COMPLAINT-AFFIDAVIT', body:`Subject asset: ${state.file.name}\n\nI report suspected unauthorized use of my likeness or identifying image in the following locations:\n${list}\n\nI request preservation of relevant account, publication, and access records pending review under applicable cybercrime and data-privacy laws. This generated draft must be reviewed, completed with jurisdictional facts, and executed before filing.` };
+    }
+
+    async function analyze() {
+      if (!state.file) return;
+      $('#intake').classList.add('hidden'); $('#dashboard').classList.remove('hidden'); $('#results').classList.add('hidden'); $('#errorBox').classList.add('hidden');
+      try {
+        setStatus('Uploading protected asset', 20, 'Secure relay');
+        const form = new FormData(); form.append('image', state.file); form.append('route', state.route);
+        const created = await fetch('/api/cases', { method:'POST', body:form });
+        const payload = await created.json();
+        if (!created.ok) throw new Error(payload.detail || 'Secure asset intake failed.');
+        await pollCase(payload.id);
+      } catch (error) {
+        setStatus('Analysis needs attention', 100, 'Request failed', false);
+        showError(error.message);
+      }
+    }
+
+    async function pollCase(caseId) {
+      const response = await fetch(`/api/cases/${encodeURIComponent(caseId)}`);
+      const job = await response.json();
+      if (!response.ok) throw new Error(job.detail || 'Could not retrieve case analysis.');
+      const progress = { queued:20, searching:48, analyzing:76, complete:100, error:100 }[job.status] || 20;
+      const label = job.mode === 'demo' ? 'Demo evidence mode' : 'Live analysis';
+      setStatus(job.status_text, progress, label, !['complete','error'].includes(job.status));
+      if (job.status === 'error') throw new Error(job.error || job.status_text);
+      if (job.status !== 'complete') { await new Promise(resolve => setTimeout(resolve, 900)); return pollCase(caseId); }
+      state.report = { matches:job.matches, overall:Number(job.overall_confidence), summary:job.summary, document:job.document, mode:label };
+      renderReport();
+    }
+
+    function showError(message) { $('#errorBox').textContent = message; $('#errorBox').classList.remove('hidden'); }
+    function renderReport() {
+      const report = state.report;
+      $('#summary').textContent = report.summary; $('#overallScore').textContent = `${report.overall}%`; $('#documentTitle').textContent = report.document.title; $('#documentText').textContent = report.document.body;
+      $('#cards').innerHTML = report.matches.map((m, index) => `<article class="thin rounded-2xl overflow-hidden bg-zinc-900/35"><div class="grid grid-cols-2 h-44"><div class="bg-zinc-800 relative">${index === 0 ? `<img src="${state.previewUrl}" class="w-full h-full object-cover opacity-80" alt="Original uploaded asset">` : '<div class="h-full grid place-content-center text-xs text-zinc-500">Original asset</div>'}<span class="absolute top-2 left-2 text-[10px] bg-black/55 px-2 py-1 rounded">Original</span></div><div class="bg-zinc-950 grid place-content-center text-xs text-zinc-600 relative">${m.thumbnail ? `<img src="${escapeHtml(m.thumbnail)}" referrerpolicy="no-referrer" class="w-full h-full object-cover opacity-65" alt="Matched web image">` : 'External reference'}<span class="absolute top-2 left-2 text-[10px] bg-black/55 px-2 py-1 rounded">Match</span></div></div><div class="p-4"><div class="flex justify-between gap-2"><p class="font-medium text-sm leading-5">${escapeHtml(m.title)}</p><span class="shrink-0 text-xs px-2 py-1 h-fit rounded ${['Critical','High'].includes(m.threat_level) ? 'bg-red-400/15 text-red-300' : 'bg-amber-300/10 text-amber-200'}">${escapeHtml(m.threat_level)}</span></div><div class="flex items-center justify-between mt-4"><span class="text-xl font-semibold">${m.confidence}%</span><button class="copy text-zinc-400 hover:text-white text-xs" data-url="${escapeHtml(m.url)}">Copy URL ⧉</button></div><p class="text-xs text-zinc-400 mt-3">${escapeHtml(m.rationale)}</p><div class="mt-4 pt-3 border-t border-white/10 text-[11px] text-zinc-500 flex justify-between gap-2"><span>${escapeHtml(m.platform)}</span><span class="text-right">${escapeHtml(m.timestamp)}</span></div><a href="${escapeHtml(m.url)}" target="_blank" rel="noopener noreferrer" class="block text-xs text-indigo-300 mt-2 truncate">${escapeHtml(m.domain)}</a></div></article>`).join('');
+      document.querySelectorAll('.copy').forEach(button => button.addEventListener('click', async () => { await navigator.clipboard.writeText(button.dataset.url); button.textContent = 'Copied ✓'; setTimeout(() => button.textContent = 'Copy URL ⧉', 1200); }));
+      $('#results').classList.remove('hidden');
+    }
+
+    function exportPdf() { const { jsPDF } = window.jspdf; const pdf = new jsPDF({ unit:'mm', format:'a4' }); const report = state.report; pdf.setFillColor(9,9,11); pdf.rect(0,0,210,297,'F'); pdf.setTextColor(244,244,245); pdf.setFont('helvetica','bold'); pdf.setFontSize(16); pdf.text('LIKENESS', 18, 18); pdf.setFontSize(12); pdf.text(report.document.title, 18, 28); pdf.setDrawColor(99,102,241); pdf.line(18,34,192,34); pdf.setFont('helvetica','normal'); pdf.setFontSize(10); const lines = pdf.splitTextToSize(report.document.body, 174); pdf.text(lines, 18, 45); let y = 50 + lines.length * 4.4; pdf.setFont('helvetica','bold'); pdf.text('Evidence audit trail', 18, y); y += 7; pdf.setFont('helvetica','normal'); report.matches.forEach((match, index) => { const row = `${index + 1}. ${match.confidence}% ${match.threat_level} · ${match.title}\n${match.url}`; const rowLines = pdf.splitTextToSize(row, 174); if (y + rowLines.length * 4.5 > 280) { pdf.addPage(); pdf.setFillColor(9,9,11); pdf.rect(0,0,210,297,'F'); pdf.setTextColor(244,244,245); y=20; } pdf.text(rowLines, 18, y); y += rowLines.length * 4.5 + 5; }); pdf.save('likeness-enforcement-package.pdf'); }
+
+    document.querySelectorAll('.route').forEach(button => button.addEventListener('click', () => { state.route = button.dataset.route; document.querySelectorAll('.route').forEach(item => item.className = `route px-4 py-2 rounded-lg text-sm thin ${item === button ? 'bg-white text-zinc-950' : 'text-zinc-400'}`); }));
+    $('#fileInput').addEventListener('change', event => chooseFile(event.target.files[0]));
+    ['dragover','dragleave','drop'].forEach(eventName => $('#dropzone').addEventListener(eventName, event => { event.preventDefault(); $('#dropzone').classList.toggle('over', eventName === 'dragover'); }));
+    $('#dropzone').addEventListener('drop', event => chooseFile(event.dataTransfer.files[0]));
+    $('#analyzeButton').addEventListener('click', analyze); $('#exportPdf').addEventListener('click', exportPdf);
+  </script>
+</body>
+</html>
