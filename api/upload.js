@@ -7,6 +7,19 @@ const uploadToken = process.env.PUBLIC_INTAKE_READ_WRITE_TOKEN || process.env.BL
 // `handleUpload` needs to generate a browser-upload token.
 export default {
   async fetch(request) {
+    // A deliberately non-sensitive diagnostic used by the browser before it
+    // attempts an upload. It confirms deployment configuration without ever
+    // exposing a token or Blob store identifier.
+    if (request.method === 'GET') {
+      return Response.json({
+        configured: Boolean(uploadToken),
+        service: 'vercel-blob-client-upload',
+      }, {
+        status: uploadToken ? 200 : 503,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
+
     if (request.method !== 'POST') {
       return Response.json({ error: 'Method not allowed.' }, { status: 405 });
     }
