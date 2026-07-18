@@ -24,17 +24,10 @@
   </style>
 </head>
 <body class="shell min-h-screen">
-  <header class="h-[60px] border-b line bg-[#0c0c0e]/95 sticky top-0 z-30 backdrop-blur">
-    <div class="h-full px-4 md:px-7 flex items-center justify-between gap-5">
-      <div class="flex items-center gap-3 shrink-0"><div class="w-10 h-10 rounded bg-[#5730f4] grid place-content-center font-bold text-sm">IP</div><div class="hidden sm:block"><p class="font-bold text-sm tracking-[.12em]">LIKENESS | IP PROTECTION</p><p class="mono text-[9px] text-[#9c8eff] mt-0.5">EVIDENCE INTELLIGENCE</p></div><span class="mono text-[10px] text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded hidden lg:block">CASE READY</span></div>
-      <nav class="hidden md:flex items-center gap-7 h-full mono text-[11px] text-zinc-400"><a href="#command" class="nav-item active h-full grid place-content-center">DASHBOARD</a><a href="#results" class="nav-item h-full grid place-content-center">EVIDENCE</a><a href="#documentPanel" class="nav-item h-full grid place-content-center">NOTICE DRAFT</a></nav>
-      <div class="flex items-center gap-3"><span class="hidden lg:flex text-[11px] text-zinc-400 border line rounded-lg px-3 py-1.5 gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1"></span>Secure server relay</span><div class="w-9 h-9 rounded-full border border-indigo-500/50 text-indigo-200 grid place-content-center text-xs">L</div></div>
-    </div>
-  </header>
-
-  <main id="command" class="max-w-[920px] mx-auto px-5 md:px-0 pt-8 pb-20">
+  <main id="command" class="relative max-w-[920px] mx-auto px-5 md:px-0 pt-8 pb-20">
+    <button class="absolute right-5 md:right-0 top-6 flex items-center gap-2 text-xs text-zinc-400 hover:text-white"><span class="w-8 h-8 rounded-full border border-indigo-500/50 text-indigo-200 grid place-content-center">L</span><span class="hidden sm:block">Account</span></button>
     <section id="intake">
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-5"><div><p class="mono text-[11px] tracking-[.18em] text-[#a99aff]">ASSET DISCOVERY CONSOLE</p><h1 class="text-2xl font-semibold tracking-tight mt-1">Locate visual matches. Build a defensible record.</h1></div><div id="routeButtons" class="flex rounded-lg border line p-1 text-xs"><button data-route="commercial" class="route rounded px-3 py-1.5 bg-white text-black">Commercial protection</button><button data-route="personal" class="route rounded px-3 py-1.5 text-zinc-400">Identity security</button></div></div>
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5 pr-16"><div><p class="mono text-[11px] tracking-[.18em] text-[#a99aff]">LIKENESS · IP PROTECTION</p><h1 class="text-2xl font-semibold tracking-tight mt-1">Locate potential IP infringements in one simple tool.</h1></div><div id="routeButtons" class="flex rounded-lg border line p-1 text-xs"><button data-route="commercial" class="route rounded px-3 py-1.5 bg-white text-black">Commercial protection</button><button data-route="personal" class="route rounded px-3 py-1.5 text-zinc-400">Identity security</button></div></div>
 
       <label id="dropzone" class="dropzone rounded-2xl relative overflow-hidden flex flex-col items-center justify-center text-center cursor-pointer px-6">
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
@@ -46,7 +39,6 @@
       <button id="analyzeButton" disabled class="button-primary disabled:opacity-35 disabled:cursor-not-allowed mt-4 w-full py-3.5 rounded-lg font-bold text-xs tracking-[.15em]">RUN PROTECTED ANALYSIS</button>
       <p class="mono text-[10px] tracking-wide text-zinc-500 text-center mt-4">YOUR SOURCE FILE IS SENT TO A SECURE SERVER RELAY • API KEYS NEVER ENTER THE BROWSER</p>
 
-      <section class="mt-8"><div class="flex items-center gap-4"><p class="mono text-[11px] tracking-[.15em] text-zinc-400 whitespace-nowrap">PROTECTION COVERAGE</p><div class="h-px bg-zinc-800 flex-1"></div><span class="mono text-[10px] text-zinc-600">LIVE SEARCH</span></div><div class="grid md:grid-cols-3 gap-3 mt-4"><article class="panel rounded-xl p-4"><p class="text-sm font-semibold">Physical products</p><p class="text-xs leading-5 text-zinc-500 mt-2">Packaging, consumer goods, product design and catalogue imagery.</p></article><article class="panel rounded-xl p-4"><p class="text-sm font-semibold">Digital works</p><p class="text-xs leading-5 text-zinc-500 mt-2">Artwork, campaign creatives, design systems and original media.</p></article><article class="panel rounded-xl p-4"><p class="text-sm font-semibold">Identity misuse</p><p class="text-xs leading-5 text-zinc-500 mt-2">Public visual matches requiring privacy or impersonation review.</p></article></div></section>
     </section>
 
     <section id="dashboard" class="hidden mt-8">
