@@ -46,6 +46,23 @@ def provider_text(value: Any, limit: int = 280, fallback: str = "") -> str:
     return bounded_text(text, limit) or fallback
 
 
+def notice_legal_framework(jurisdiction: str) -> str:
+    """Verified high-level legal context; not a substitute for local legal advice."""
+    base = (
+        "Copyright protection is territorial and the available remedies depend on the law of the place where protection is claimed. "
+        "Under the Berne Convention framework, protection for qualifying works is generally not conditional on registration or another formality. "
+        "Do not assert that any particular right, registration, or remedy applies unless it is supported by the supplied facts and reviewed by counsel."
+    )
+    if "philipp" in jurisdiction.lower():
+        return (
+            base
+            + " For Philippine context, Republic Act No. 8293, the Intellectual Property Code of the Philippines, addresses "
+            "copyright and related rights, trademarks and service marks, industrial designs, patents, and other intellectual property categories. "
+            "Use this reference only as general context and do not cite a section number or state a legal conclusion without counsel review."
+        )
+    return base
+
+
 def domain_name(url: str) -> str:
     return urlparse(url).netloc.lower().removeprefix("www.") or "Unknown source"
 
@@ -297,23 +314,24 @@ async def draft_notice_with_openai(request: NoticeRequest) -> dict[str, str]:
     target = request.target.model_dump()
     target["price"] = provider_text(target.get("price"), 80, "Not listed")
     prompt = (
-        "Draft a detailed, professional enforcement notice as plain text for human legal review. "
+        "Draft a detailed, formal enforcement notice in plain text for human legal review. "
         "It is not legal advice, must not state that infringement is proven, and must not fabricate statutes, "
         "registration numbers, addresses, or platform procedures. Use the supplied jurisdiction only as context. "
         "Address it to the selected website/platform, identify the selected listing URL, request preservation of records, "
         "removal or disabling of the disputed content, a written response, and a reasonable response period expressed "
         "as a placeholder. Include sections for rights-holder details, factual basis, requested action, evidence preservation, "
         "reservation of rights, and signature placeholders. End with a clear legal-review disclaimer. "
-        "Return strict JSON with title and body. Body should be 650-1000 words. "
+        "Use conventional legal-letter prose and clear all-caps section labels where useful. Do not use Markdown, hashtags, bullets, "
+        "asterisks, or numbered lists. Return strict JSON with title and body. Body should be 900-1200 words. "
         f"Case route: {request.route}. Asset: {request.asset_name}. Brand: {request.brand_name}. "
         f"Rights holder: {request.rights_holder}. Rights basis: {request.rights_basis}. "
         f"Jurisdiction: {request.jurisdiction}. Distinctive features: {request.asset_description}. "
         f"Product identifiers: {request.identifiers}. Known authorized sellers: {request.authorized_sellers}. "
-        f"Selected target: {json.dumps(target)}"
+        f"Selected target: {json.dumps(target)}. Verified general legal framework to incorporate carefully: {notice_legal_framework(request.jurisdiction)}"
     )
     payload = await openai_json(prompt)
     title = bounded_text(str(payload.get("title", "DRAFT ENFORCEMENT NOTICE")), 160)
-    body = str(payload.get("body", "")).strip()
+    body = re.sub(r"(?m)^\s*#{1,6}\s*", "", str(payload.get("body", "")).strip())
     if not body:
         raise RuntimeError("The drafting service returned an empty notice.")
     return {"title": title or "DRAFT ENFORCEMENT NOTICE", "body": body[:9000]}
