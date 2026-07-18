@@ -61,7 +61,10 @@
           <label class="text-xs text-zinc-400">Brand or rights holder<input id="brandName" maxlength="160" placeholder="e.g. Northstar Goods" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
           <label class="text-xs text-zinc-400">Jurisdiction<input id="jurisdiction" maxlength="120" placeholder="e.g. Philippines / international" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
           <label class="text-xs text-zinc-400">Approved domains to exclude<input id="officialDomains" maxlength="500" placeholder="yourbrand.com, authorized-shop.com" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
+          <label class="text-xs text-zinc-400">Product identifiers<input id="identifiers" maxlength="300" placeholder="Model, SKU, serial range, registered design…" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
+          <label class="text-xs text-zinc-400">Known authorized sellers<input id="authorizedSellers" maxlength="300" placeholder="Retailer names or marketplace storefronts" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
         </div>
+        <label class="block text-xs text-zinc-400 mt-3">Distinctive features to assess<textarea id="assetDescription" maxlength="600" rows="2" placeholder="Visible marks, packaging, colorways, design details, or digital-art elements that should be compared." class="mt-1.5 w-full resize-none rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600"></textarea></label>
         <label class="block text-xs text-zinc-400 mt-3">Rights basis / registration details<textarea id="rightsBasis" maxlength="400" rows="2" placeholder="e.g. Original product photography; registered mark no. …" class="mt-1.5 w-full resize-none rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600"></textarea></label>
       </section>
       <button id="analyzeButton" disabled class="mt-5 w-full py-3 rounded-xl bg-indigo-400 text-zinc-950 font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition hover:bg-indigo-300">Find candidate listings</button>
@@ -76,6 +79,13 @@
 
       <div id="results" class="hidden">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6"><div><p class="text-xs text-indigo-300 uppercase tracking-[.16em]">Top candidate listings</p><h2 class="text-3xl font-semibold tracking-tight mt-1">Evidence overview</h2><p id="summary" class="text-zinc-400 text-sm mt-2"></p></div><div class="thin rounded-xl px-4 py-3 min-w-36"><span class="text-zinc-500 text-xs">AI risk signal</span><p id="overallScore" class="text-2xl font-semibold">—</p></div></div>
+
+        <section id="findingsPanel" class="thin rounded-2xl p-5 mb-5 bg-zinc-900/35">
+          <div class="flex items-center justify-between gap-3"><p class="text-xs text-indigo-300 uppercase tracking-[.16em]">AI findings</p><span class="text-[10px] text-zinc-500">Triage signals, not a legal conclusion</span></div>
+          <p id="findingsSummary" class="text-sm leading-6 text-zinc-300 mt-3"></p>
+          <div class="grid md:grid-cols-2 gap-5 mt-4"><div><p class="text-xs text-zinc-500 uppercase tracking-[.12em]">Key signals</p><ul id="riskFactors" class="mt-2 space-y-1.5 text-sm text-zinc-300 list-disc pl-4"></ul></div><div><p class="text-xs text-zinc-500 uppercase tracking-[.12em]">Recommended next steps</p><ul id="recommendedActions" class="mt-2 space-y-1.5 text-sm text-zinc-300 list-disc pl-4"></ul></div></div>
+          <p id="limitations" class="text-xs text-zinc-500 mt-4"></p>
+        </section>
 
         <section id="selectionPanel" class="thin rounded-2xl p-5 mb-5 bg-indigo-400/[.045] hidden">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p class="text-xs text-indigo-300 uppercase tracking-[.16em]">Selected enforcement target</p><p id="selectedTarget" class="font-medium mt-1"></p><p id="selectedTargetMeta" class="text-xs text-zinc-400 mt-1"></p></div><button id="generateNotice" class="rounded-lg bg-white text-zinc-950 text-sm font-medium px-4 py-2 hover:bg-zinc-200">Generate targeted notice</button></div>
@@ -116,7 +126,7 @@
     }
 
     function caseContext() {
-      return { asset_name: field('#assetName') || state.file.name, brand_name: field('#brandName'), rights_holder: field('#brandName'), rights_basis: field('#rightsBasis'), jurisdiction: field('#jurisdiction') };
+      return { asset_name: field('#assetName') || state.file.name, brand_name: field('#brandName'), rights_holder: field('#brandName'), rights_basis: field('#rightsBasis'), jurisdiction: field('#jurisdiction'), asset_description: field('#assetDescription'), identifiers: field('#identifiers'), authorized_sellers: field('#authorizedSellers') };
     }
 
     async function readJson(response) {
@@ -140,6 +150,7 @@
         const form = new FormData(); form.append('image_url', blob.url); form.append('route', state.route);
         form.append('asset_name', field('#assetName')); form.append('brand_name', field('#brandName')); form.append('rights_holder', field('#brandName'));
         form.append('rights_basis', field('#rightsBasis')); form.append('jurisdiction', field('#jurisdiction')); form.append('official_domains', field('#officialDomains'));
+        form.append('asset_description', field('#assetDescription')); form.append('identifiers', field('#identifiers')); form.append('authorized_sellers', field('#authorizedSellers'));
         setStatus('Searching visual listings and triaging candidates', 58, 'Live analysis');
         const response = await fetch('/api/cases', { method: 'POST', body: form }); const payload = await readJson(response);
         if (!response.ok) throw new Error(payload.detail || 'Secure asset intake failed.');
@@ -152,11 +163,17 @@
     function selectTarget(index) { state.selectedIndex = index; state.document = null; $('#documentPanel').classList.add('hidden'); renderReport(); }
     function displayText(value, fallback = 'Not listed') { if (typeof value === 'string' || typeof value === 'number') return String(value); if (value && typeof value === 'object') return String(value.display_price || value.extracted_price || value.price || value.value || value.text || fallback); return fallback; }
     function noticeTarget(match) { return { title: String(match.title || 'Untitled listing'), url: String(match.url || ''), domain: String(match.domain || ''), platform: String(match.platform || 'Web publisher'), price: displayText(match.price), confidence: Number(match.confidence || 0), threat_level: String(match.threat_level || 'Moderate'), rationale: String(match.rationale || 'Similarity signal requires human review.'), timestamp: String(match.timestamp || '') }; }
+    function renderBullets(id, values) { $(id).innerHTML = (Array.isArray(values) ? values : []).map(value => `<li>${escapeHtml(value)}</li>`).join(''); }
 
     function renderReport() {
       const report = state.report; const target = selectedMatch();
       report.matches.forEach(match => { match.price = displayText(match.price); });
       $('#summary').textContent = report.summary; $('#overallScore').textContent = `${report.overall_confidence}%`; $('#results').classList.remove('hidden');
+      const findings = report.ai_findings || {};
+      $('#findingsSummary').textContent = findings.summary || report.summary;
+      renderBullets('#riskFactors', findings.risk_factors || ['Visual-search results require comparison against the rights holder\'s original asset.']);
+      renderBullets('#recommendedActions', findings.recommended_actions || ['Review the selected listing and preserve a dated copy of the page before taking action.']);
+      $('#limitations').textContent = `Limitations: ${(findings.limitations || ['This triage is based on public search-result metadata and does not determine legal liability.']).join(' ')}`;
       $('#selectionPanel').classList.toggle('hidden', !target);
       if (target) { $('#selectedTarget').textContent = target.title; $('#selectedTargetMeta').textContent = `${target.platform} · ${target.domain} · ${target.confidence}% risk signal`; }
       $('#cards').innerHTML = report.matches.map((m, index) => `<article class="thin rounded-2xl overflow-hidden bg-zinc-900/35 transition ${index === state.selectedIndex ? 'selected-card' : ''}"><div class="grid grid-cols-2 h-44"><div class="bg-zinc-800 relative">${index === 0 ? `<img src="${state.previewUrl}" class="w-full h-full object-cover opacity-80" alt="Original uploaded asset">` : '<div class="h-full grid place-content-center text-xs text-zinc-500">Original asset</div>'}<span class="absolute top-2 left-2 text-[10px] bg-black/55 px-2 py-1 rounded">Original</span></div><div class="bg-zinc-950 grid place-content-center text-xs text-zinc-600 relative">${m.thumbnail ? `<img src="${escapeHtml(m.thumbnail)}" referrerpolicy="no-referrer" class="w-full h-full object-cover opacity-65" alt="Matched web image">` : 'External reference'}<span class="absolute top-2 left-2 text-[10px] bg-black/55 px-2 py-1 rounded">${escapeHtml(m.source_type || 'Match')}</span></div></div><div class="p-4"><div class="flex justify-between gap-2"><p class="font-medium text-sm leading-5">${escapeHtml(m.title)}</p><span class="shrink-0 text-xs px-2 py-1 h-fit rounded ${['Critical','High'].includes(m.threat_level) ? 'bg-red-400/15 text-red-300' : 'bg-amber-300/10 text-amber-200'}">${escapeHtml(m.threat_level)}</span></div><div class="flex items-center justify-between mt-4"><span class="text-xl font-semibold">${m.confidence}%</span><span class="text-xs text-zinc-500">${escapeHtml(m.price)}</span></div><p class="text-xs text-zinc-400 mt-3">${escapeHtml(m.rationale)}</p><p class="text-[11px] text-zinc-500 mt-2">Evidence: ${escapeHtml(m.evidence_basis || 'Search metadata')}</p><div class="mt-4 pt-3 border-t border-white/10 text-[11px] text-zinc-500 flex justify-between gap-2"><span>${escapeHtml(m.platform)}</span><span class="text-right">${escapeHtml(m.timestamp)}</span></div><div class="flex items-center justify-between gap-3 mt-3"><a href="${escapeHtml(m.url)}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-300 truncate">${escapeHtml(m.domain)}</a><div class="flex gap-2 shrink-0"><button class="copy text-zinc-400 hover:text-white text-xs" data-url="${escapeHtml(m.url)}">Copy</button><button class="target text-xs px-2.5 py-1 rounded-md ${index === state.selectedIndex ? 'bg-indigo-300 text-zinc-950' : 'thin text-zinc-300 hover:bg-white/5'}" data-index="${index}">${index === state.selectedIndex ? 'Selected' : 'Select'}</button></div></div></div></article>`).join('');

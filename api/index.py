@@ -150,7 +150,9 @@ async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[
         "You are Likeness, an evidence-oriented IP risk triage assistant. "
         "Assess only the supplied search metadata and stated ownership information. "
         "Do not claim that infringement is legally proven and do not invent facts or laws. "
-        "Return strict JSON with overall_confidence (integer 0-100), summary (one concise sentence), "
+        "Return strict JSON with overall_confidence (integer 0-100), summary (2-3 concise sentences), "
+        "risk_factors (array of 2-4 concise evidence-based signals), recommended_actions (array of 2-4 practical next steps), "
+        "and limitations (array of 1-3 evidence limitations). "
         "and matches in the same order. Each match requires confidence (integer 0-100), "
         "threat_level (Critical, High, Moderate, or Low), rationale (max 24 words), "
         "and evidence_basis (max 18 words). "
@@ -198,6 +200,22 @@ def apply_insights(matches: list[dict[str, Any]], analysis: dict[str, Any]) -> l
     return sorted(matches, key=lambda item: (-item["confidence"], item["provider_rank"]))[:MAX_CANDIDATES]
 
 
+def analysis_list(value: Any, limit: int, fallback: list[str]) -> list[str]:
+    if not isinstance(value, list):
+        return fallback
+    items = [bounded_text(str(item), 220) for item in value if isinstance(item, (str, int, float))]
+    return [item for item in items if item][:limit] or fallback
+
+
+def analysis_brief(analysis: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "summary": bounded_text(str(analysis.get("summary", "Candidate listings are ready for rights-holder review.")), 650),
+        "risk_factors": analysis_list(analysis.get("risk_factors"), 4, ["Visual-search results require comparison against the rights holder's original asset."]),
+        "recommended_actions": analysis_list(analysis.get("recommended_actions"), 4, ["Review the selected listing and preserve a dated copy of the page before taking action."]),
+        "limitations": analysis_list(analysis.get("limitations"), 3, ["This triage is based on public search-result metadata and does not determine legal liability."]),
+    }
+
+
 class NoticeTarget(BaseModel):
     title: str = Field(max_length=240)
     url: str = Field(max_length=2048)
@@ -219,6 +237,9 @@ class NoticeRequest(BaseModel):
     rights_holder: str = Field(default="", max_length=200)
     rights_basis: str = Field(default="", max_length=400)
     jurisdiction: str = Field(default="", max_length=120)
+    asset_description: str = Field(default="", max_length=600)
+    identifiers: str = Field(default="", max_length=300)
+    authorized_sellers: str = Field(default="", max_length=300)
     target: NoticeTarget
 
 
@@ -236,7 +257,9 @@ async def draft_notice_with_openai(request: NoticeRequest) -> dict[str, str]:
         "Return strict JSON with title and body. Body should be 650-1000 words. "
         f"Case route: {request.route}. Asset: {request.asset_name}. Brand: {request.brand_name}. "
         f"Rights holder: {request.rights_holder}. Rights basis: {request.rights_basis}. "
-        f"Jurisdiction: {request.jurisdiction}. Selected target: {json.dumps(target)}"
+        f"Jurisdiction: {request.jurisdiction}. Distinctive features: {request.asset_description}. "
+        f"Product identifiers: {request.identifiers}. Known authorized sellers: {request.authorized_sellers}. "
+        f"Selected target: {json.dumps(target)}"
     )
     payload = await openai_json(prompt)
     title = bounded_text(str(payload.get("title", "DRAFT ENFORCEMENT NOTICE")), 160)
@@ -264,6 +287,9 @@ async def create_case_impl(
     rights_holder: str = Form(""),
     rights_basis: str = Form(""),
     jurisdiction: str = Form(""),
+    asset_description: str = Form(""),
+    identifiers: str = Form(""),
+    authorized_sellers: str = Form(""),
     official_domains: str = Form(""),
 ) -> JSONResponse:
     missing_configuration = missing_live_configuration()
@@ -280,6 +306,9 @@ async def create_case_impl(
         "rights_holder": bounded_text(rights_holder, 200),
         "rights_basis": bounded_text(rights_basis, 400),
         "jurisdiction": bounded_text(jurisdiction, 120),
+        "asset_description": bounded_text(asset_description, 600),
+        "identifiers": bounded_text(identifiers, 300),
+        "authorized_sellers": bounded_text(authorized_sellers, 300),
     }
     try:
         image_url = validate_likeness_blob_url(image_url)
@@ -301,13 +330,15 @@ async def create_case_impl(
         overall = int(analysis.get("overall_confidence", average))
     except (TypeError, ValueError):
         overall = average
+    ai_findings = analysis_brief(analysis)
     return JSONResponse(
         {
             "mode": "live",
             "case": context,
             "matches": matches,
             "overall_confidence": max(0, min(overall, 100)),
-            "summary": bounded_text(str(analysis.get("summary", "Candidate listings are ready for rights-holder review.")), 260),
+            "summary": bounded_text(ai_findings["summary"], 260),
+            "ai_findings": ai_findings,
             "source_image_url": image_url,
         }
     )
