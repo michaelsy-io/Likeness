@@ -142,15 +142,17 @@ def openai_model() -> str:
     return os.getenv("OPENAI_MODEL", "gpt-4o")
 
 
-async def openai_json(prompt: str, image_urls: list[str] | None = None) -> dict[str, Any]:
+async def openai_json(
+    prompt: str, image_urls: list[str] | None = None, image_labels: list[str] | None = None
+) -> dict[str, Any]:
     api_key = os.getenv("OPENAI_API_KEY")
     content: str | list[dict[str, Any]] = prompt
     if image_urls:
         content = [{"type": "text", "text": prompt}]
-        content.extend(
-            {"type": "image_url", "image_url": {"url": url, "detail": "high"}}
-            for url in image_urls
-        )
+        for index, url in enumerate(image_urls):
+            if image_labels and index < len(image_labels):
+                content.append({"type": "text", "text": image_labels[index]})
+            content.append({"type": "image_url", "image_url": {"url": url, "detail": "high"}})
     body = {
         "model": openai_model(),
         "messages": [{"role": "user", "content": content}],
@@ -173,30 +175,36 @@ async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[
         for match in matches
     ]
     vision_urls = [source_image_url]
-    for match in matches[:10]:
+    image_labels = ["IMAGE 0 — rights-holder reference asset."]
+    for index, match in enumerate(matches[:10]):
         thumbnail = match.get("thumbnail")
         if isinstance(thumbnail, str) and thumbnail.startswith("https://"):
             vision_urls.append(thumbnail)
+            image_labels.append(f"CANDIDATE {index + 1} — thumbnail for the candidate record at index {index + 1}.")
     prompt = (
         "You are Likeness, an evidence-oriented IP risk triage assistant. "
-        "The first image is the rights-holder's uploaded asset. Subsequent images, in candidate-record order where available, are returned listing thumbnails. "
-        "Assess visual and metadata similarity only from the supplied images, search metadata, and stated ownership information. "
+        "The first image is the rights-holder's uploaded asset. Each later image is explicitly labelled with its candidate-record index; do not assign visual observations to a candidate whose thumbnail was not supplied. "
+        "Assess visual and metadata similarity only from the supplied images, search metadata, and stated ownership information. Describe concrete, observable signals such as logos, layout, silhouette, colour placement, packaging, model identifiers, title wording, seller, or price. "
         "Do not claim that infringement is legally proven and do not invent facts or laws. "
         "Confidence is a visual-likeness triage score, not a probability of legal infringement. Calibrate it strictly: 90-100 only for the same image, clearly identical product, or distinctive design; "
         "75-89 for substantial visual/design overlap; 50-74 for general category resemblance or incomplete visual evidence; 0-49 for weak or unrelated similarity. "
-        "A listing may be visually identical but not a legal threat if it is authorized; use the stated authorized domains/sellers as context. "
+        "A listing may be visually identical but not a legal threat if it is authorized; use the stated authorized domains/sellers as context. Never boost a score merely because it appears in the search results. "
         "Return strict JSON with overall_confidence (integer 0-100), summary (2-3 concise sentences), "
         "risk_factors (array of 2-4 concise evidence-based signals), recommended_actions (array of 2-4 practical next steps), "
         "and limitations (array of 1-3 evidence limitations). "
         "and matches in the same order. Each match requires confidence (integer 0-100), "
         "threat_level (Critical, High, Moderate, or Low), visual_similarity (integer 0-100), title_similarity (integer 0-100), "
         "metadata_similarity (integer 0-100), display_decision (prioritize, review, or hide), filter_reason (max 16 words), "
+        "match_type (SAME IMAGE, NEAR-IDENTICAL PRODUCT, SHARED DESIGN CUES, CATEGORY-LEVEL RESEMBLANCE, or INSUFFICIENT EVIDENCE), "
         "similarities (array of 2-4 concise concrete observations), differences (array of 0-3 concrete observations), "
-        "rationale (max 32 words), and evidence_basis (max 28 words). "
+        "uncertainty (max 22 words; explain a missing thumbnail, obscured detail, or conflicting evidence, otherwise an empty string), "
+        "rationale (max 42 words; explain the score in plain language), and evidence_basis (max 36 words). "
         f"Route: {route}. Asset context: {json.dumps(asset_context)}. Candidate records: {json.dumps(evidence)}"
     )
     try:
-        analysis = await openai_json(prompt, vision_urls if len(vision_urls) > 1 else None)
+        analysis = await openai_json(
+            prompt, vision_urls if len(vision_urls) > 1 else None, image_labels if len(vision_urls) > 1 else None
+        )
         analysis["comparison_mode"] = "Vision and metadata" if len(vision_urls) > 1 else "Metadata only"
         return analysis
     except httpx.HTTPStatusError:
@@ -242,6 +250,8 @@ def apply_insights(matches: list[dict[str, Any]], analysis: dict[str, Any]) -> t
         match["threat_level"] = threat if threat in {"Critical", "High", "Moderate", "Low"} else "Moderate"
         match["rationale"] = bounded_text(str(insight.get("rationale", "Similarity signal requires human review.")), 180)
         match["evidence_basis"] = bounded_text(str(insight.get("evidence_basis", "Search-result metadata.")), 140)
+        match["match_type"] = bounded_text(str(insight.get("match_type", "REVIEW CANDIDATE")).upper(), 42)
+        match["uncertainty"] = bounded_text(str(insight.get("uncertainty", "")), 140)
         for field in ("visual_similarity", "title_similarity", "metadata_similarity"):
             try:
                 score = int(insight.get(field, confidence if field == "visual_similarity" else 0))
