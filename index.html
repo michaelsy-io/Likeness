@@ -121,26 +121,22 @@
         setStatus('Uploading protected asset', 20, 'Secure relay');
         const form = new FormData(); form.append('image', state.file); form.append('route', state.route);
         const created = await fetch('/api/cases', { method:'POST', body:form });
-        const payload = await created.json();
+        const payload = await readJson(created);
         if (!created.ok) throw new Error(payload.detail || 'Secure asset intake failed.');
-        await pollCase(payload.id);
+        const label = payload.mode === 'demo' ? 'Demo evidence mode' : 'Live analysis';
+        setStatus('Enforcement package ready', 100, label, false);
+        state.report = { matches:payload.matches, overall:Number(payload.overall_confidence), summary:payload.summary, document:payload.document, mode:label };
+        renderReport();
       } catch (error) {
         setStatus('Analysis needs attention', 100, 'Request failed', false);
         showError(error.message);
       }
     }
 
-    async function pollCase(caseId) {
-      const response = await fetch(`/api/cases/${encodeURIComponent(caseId)}`);
-      const job = await response.json();
-      if (!response.ok) throw new Error(job.detail || 'Could not retrieve case analysis.');
-      const progress = { queued:20, searching:48, analyzing:76, complete:100, error:100 }[job.status] || 20;
-      const label = job.mode === 'demo' ? 'Demo evidence mode' : 'Live analysis';
-      setStatus(job.status_text, progress, label, !['complete','error'].includes(job.status));
-      if (job.status === 'error') throw new Error(job.error || job.status_text);
-      if (job.status !== 'complete') { await new Promise(resolve => setTimeout(resolve, 900)); return pollCase(caseId); }
-      state.report = { matches:job.matches, overall:Number(job.overall_confidence), summary:job.summary, document:job.document, mode:label };
-      renderReport();
+    async function readJson(response) {
+      const text = await response.text();
+      try { return JSON.parse(text); }
+      catch { throw new Error(`The server returned ${response.status} instead of an API response. Redeploy the FastAPI backend and try again.`); }
     }
 
     function showError(message) { $('#errorBox').textContent = message; $('#errorBox').classList.remove('hidden'); }
