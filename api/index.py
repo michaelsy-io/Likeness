@@ -13,7 +13,9 @@ from fastapi import FastAPI, Form, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-MAX_CANDIDATES = 10
+# SerpApi candidates are deduplicated and assessed before the UI sees them.
+# Twenty is still comfortable in the two-column evidence ledger.
+MAX_CANDIDATES = 20
 
 app = FastAPI(title="Likeness", version="2.0.0")
 
@@ -171,7 +173,8 @@ async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[
         "and limitations (array of 1-3 evidence limitations). "
         "and matches in the same order. Each match requires confidence (integer 0-100), "
         "threat_level (Critical, High, Moderate, or Low), visual_similarity (integer 0-100), title_similarity (integer 0-100), "
-        "metadata_similarity (integer 0-100), similarities (array of 2-4 concise concrete observations), differences (array of 0-3 concrete observations), "
+        "metadata_similarity (integer 0-100), display_decision (prioritize, review, or hide), filter_reason (max 16 words), "
+        "similarities (array of 2-4 concise concrete observations), differences (array of 0-3 concrete observations), "
         "rationale (max 32 words), and evidence_basis (max 28 words). "
         f"Route: {route}. Asset context: {json.dumps(asset_context)}. Candidate records: {json.dumps(evidence)}"
     )
@@ -209,7 +212,7 @@ def validate_likeness_blob_url(value: str) -> str:
     return url
 
 
-def apply_insights(matches: list[dict[str, Any]], analysis: dict[str, Any]) -> list[dict[str, Any]]:
+def apply_insights(matches: list[dict[str, Any]], analysis: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
     insights = analysis.get("matches", [])
     for index, match in enumerate(matches):
         insight = insights[index] if index < len(insights) and isinstance(insights[index], dict) else {}
@@ -232,8 +235,18 @@ def apply_insights(matches: list[dict[str, Any]], analysis: dict[str, Any]) -> l
             insight.get("similarities"), 4, ["Visual and listing metadata require rights-holder review."]
         )
         match["differences"] = analysis_list(insight.get("differences"), 3, [])
+        decision = str(insight.get("display_decision", "review")).lower()
+        match["display_decision"] = decision if decision in {"prioritize", "review", "hide"} else "review"
+        match["filter_reason"] = bounded_text(str(insight.get("filter_reason", "Requires rights-holder review.")), 120)
         match["timestamp"] = iso_now()
-    return sorted(matches, key=lambda item: (-item["confidence"], item["provider_rank"]))[:MAX_CANDIDATES]
+    ranked = sorted(matches, key=lambda item: (-item["confidence"], item["provider_rank"]))
+    visible = [match for match in ranked if match["display_decision"] != "hide"]
+    screened_out_count = len(ranked) - len(visible)
+    # Do not silently turn a weak AI response into an empty evidence ledger.
+    if not visible:
+        visible = ranked[: min(10, len(ranked))]
+        screened_out_count = 0
+    return visible[:MAX_CANDIDATES], screened_out_count
 
 
 def analysis_list(value: Any, limit: int, fallback: list[str]) -> list[str]:
@@ -353,7 +366,7 @@ async def create_case_impl(
         if not candidates:
             raise HTTPException(404, "Google Lens found no candidate listings after approved domains were excluded.")
         analysis = await analyze_with_openai(context, candidates, route, image_url)
-        matches = apply_insights(candidates, analysis)
+        matches, screened_out_count = apply_insights(candidates, analysis)
     except HTTPException:
         raise
     except httpx.HTTPStatusError as exc:
@@ -376,6 +389,7 @@ async def create_case_impl(
             "overall_confidence": max(0, min(overall, 100)),
             "summary": bounded_text(ai_findings["summary"], 260),
             "ai_findings": ai_findings,
+            "screened_out_count": screened_out_count,
             "source_image_url": image_url,
         }
     )
