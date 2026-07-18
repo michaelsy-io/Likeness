@@ -122,6 +122,18 @@ def demo_matches(route: str) -> list[dict[str, Any]]:
     ]
 
 
+def missing_live_configuration() -> list[str]:
+    """Return safe configuration labels without ever exposing secret values."""
+    missing = [
+        name
+        for name in ("SERPAPI_API_KEY", "OPENAI_API_KEY")
+        if not os.getenv(name)
+    ]
+    if not (os.getenv("BLOB_READ_WRITE_TOKEN") or os.getenv("VERCEL_OIDC_TOKEN")):
+        missing.append("a connected Public Vercel Blob store")
+    return missing
+
+
 def document_text(route: str, asset_name: str, matches: list[dict[str, Any]]) -> dict[str, str]:
     destinations = "\n".join(f"• {match['title']} — {match['url']}" for match in matches)
     if route == "commercial":
@@ -144,17 +156,21 @@ async def create_case_impl(
     if len(contents) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, "Images must be 10 MB or smaller.")
     filename = re.sub(r"[^A-Za-z0-9._-]", "_", image.filename or "asset")
-    live_ready = bool(os.getenv("SERPAPI_API_KEY") and os.getenv("OPENAI_API_KEY"))
+    missing_configuration = missing_live_configuration()
+    if missing_configuration:
+        missing_text = ", ".join(missing_configuration)
+        raise HTTPException(
+            503,
+            "Live analysis is not configured. Add "
+            f"{missing_text} in this Vercel project's Production settings, then redeploy.",
+        )
     image_url = ""
     try:
-        if live_ready:
-            image_url = await upload_public_blob(contents, filename, image.content_type)
-            matches = await search_google_lens(image_url)
-            if not matches:
-                raise HTTPException(404, "Google Lens returned no visual matches for this image.")
-            analysis, mode = await analyze_with_openai({"filename": filename, "image_url": image_url}, matches, route), "live"
-        else:
-            matches, analysis, mode = demo_matches(route), {}, "demo"
+        image_url = await upload_public_blob(contents, filename, image.content_type)
+        matches = await search_google_lens(image_url)
+        if not matches:
+            raise HTTPException(404, "Google Lens returned no visual matches for this image.")
+        analysis, mode = await analyze_with_openai({"filename": filename, "image_url": image_url}, matches, route), "live"
     except HTTPException:
         raise
     except Exception as exc:
