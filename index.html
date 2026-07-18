@@ -3,225 +3,84 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Likeness — Asset Protection</title>
+  <title>Likeness | IP Protection</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    :root { color-scheme: dark; }
-    body { background:#09090b; color:#f4f4f5; }
-    .grid-bg { background-image:linear-gradient(rgba(255,255,255,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.026) 1px,transparent 1px); background-size:42px 42px; }
-    .thin { border:1px solid rgba(255,255,255,.10); }
-    .sheen { background:linear-gradient(118deg,rgba(255,255,255,.055),transparent 25%,rgba(255,255,255,.02)); }
-    .drop { border:1px dashed rgba(255,255,255,.25); background:radial-gradient(circle at 50% 0%,rgba(99,102,241,.17),transparent 43%),rgba(24,24,27,.5); }
-    .drop:hover,.drop.over { transform:scale(1.008); border-color:rgba(165,180,252,.85); box-shadow:0 0 64px rgba(99,102,241,.18); }
-    .pulse { animation:pulse 1.8s ease-in-out infinite; }
-    @keyframes pulse { 50% { box-shadow:0 0 36px rgba(129,140,248,.30); border-color:rgba(165,180,252,.45); } }
-    .selected-card { border-color:rgba(165,180,252,.75); box-shadow:0 0 0 1px rgba(165,180,252,.25),0 0 32px rgba(99,102,241,.13); }
-    input, textarea { outline:none; } input:focus, textarea:focus { border-color:rgba(165,180,252,.72); box-shadow:0 0 0 3px rgba(99,102,241,.10); }
-    ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-thumb { background:#27272a; border-radius:99px; }
+    :root { color-scheme: dark; } * { box-sizing: border-box; }
+    body { margin:0; background:#080809; color:#f5f5f6; font-family:Inter,ui-sans-serif,system-ui,sans-serif; }
+    .mono { font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace; }
+    .shell { background:radial-gradient(ellipse 50% 30% at 50% 17%,rgba(94,61,255,.10),transparent 68%); }
+    .line { border-color:rgba(255,255,255,.14); } .panel { border:1px solid rgba(255,255,255,.14); background:rgba(15,15,18,.68); }
+    .dropzone { min-height:430px; border:2px dashed rgba(160,160,180,.21); background:linear-gradient(135deg,rgba(255,255,255,.015),rgba(255,255,255,.005)); transition:.22s ease; }
+    .dropzone:hover,.dropzone.over { border-color:#6a43ff; background:radial-gradient(circle at 50% 45%,rgba(94,61,255,.12),transparent 42%),rgba(15,15,18,.75); box-shadow:0 0 64px rgba(80,45,255,.13); transform:translateY(-1px); }
+    .upload-icon { background:linear-gradient(145deg,#202027,#15151b); border:1px solid rgba(255,255,255,.1); box-shadow:inset 0 1px rgba(255,255,255,.07); }
+    .button-primary { background:#5630f5; box-shadow:0 8px 28px rgba(86,48,245,.25); } .button-primary:hover { background:#6845ff; }
+    .nav-item { border-bottom:1px solid transparent; } .nav-item.active { border-color:#9b86ff; color:#fff; }
+    input,textarea { outline:none; transition:.16s ease; } input:focus,textarea:focus { border-color:#7250ff!important; box-shadow:0 0 0 3px rgba(105,74,255,.14); }
+    .pulse { animation:pulse 1.8s ease-in-out infinite; } @keyframes pulse { 50% { border-color:rgba(121,94,255,.8); box-shadow:0 0 32px rgba(87,57,255,.18); } }
+    .selected { border-color:#8063ff!important; box-shadow:0 0 0 1px rgba(128,99,255,.22),0 12px 36px rgba(0,0,0,.2); }
+    ::-webkit-scrollbar { width:7px; } ::-webkit-scrollbar-thumb { background:#31313a; border-radius:999px; }
   </style>
 </head>
-<body class="min-h-screen grid-bg selection:bg-indigo-400/30">
-  <main class="max-w-6xl mx-auto px-5 py-7 md:py-10">
-    <header class="flex items-center justify-between mb-10">
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-white text-zinc-950 grid place-content-center font-black">L</div>
-        <span class="font-semibold tracking-tight">Likeness</span>
-        <span class="text-[10px] tracking-[.16em] text-zinc-500 uppercase thin px-2 py-1 rounded-full">Protection OS</span>
-      </div>
-      <div class="thin rounded-lg px-3 py-2 text-xs text-zinc-400 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Secure API relay</div>
-    </header>
+<body class="shell min-h-screen">
+  <header class="h-[60px] border-b line bg-[#0c0c0e]/95 sticky top-0 z-30 backdrop-blur">
+    <div class="h-full px-4 md:px-7 flex items-center justify-between gap-5">
+      <div class="flex items-center gap-3 shrink-0"><div class="w-10 h-10 rounded bg-[#5730f4] grid place-content-center font-bold text-sm">IP</div><div class="hidden sm:block"><p class="font-bold text-sm tracking-[.12em]">LIKENESS | IP PROTECTION</p><p class="mono text-[9px] text-[#9c8eff] mt-0.5">EVIDENCE INTELLIGENCE</p></div><span class="mono text-[10px] text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded hidden lg:block">CASE READY</span></div>
+      <nav class="hidden md:flex items-center gap-7 h-full mono text-[11px] text-zinc-400"><a href="#command" class="nav-item active h-full grid place-content-center">DASHBOARD</a><a href="#results" class="nav-item h-full grid place-content-center">EVIDENCE</a><a href="#documentPanel" class="nav-item h-full grid place-content-center">NOTICE DRAFT</a></nav>
+      <div class="flex items-center gap-3"><span class="hidden lg:flex text-[11px] text-zinc-400 border line rounded-lg px-3 py-1.5 gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1"></span>Secure server relay</span><div class="w-9 h-9 rounded-full border border-indigo-500/50 text-indigo-200 grid place-content-center text-xs">L</div></div>
+    </div>
+  </header>
 
-    <section id="intake" class="max-w-3xl mx-auto">
-      <div class="text-center">
-        <p class="text-indigo-300 text-xs font-medium tracking-[.20em] uppercase mb-4">Brand protection intelligence</p>
-        <h1 class="text-4xl md:text-6xl font-semibold tracking-[-.055em] leading-[.97]">Find the listings<br>that copy your work.</h1>
-        <p class="text-zinc-400 mt-6 leading-relaxed max-w-xl mx-auto">Search candidate visual matches, exclude known authorized sellers, triage the top listings, and prepare a review-ready enforcement draft.</p>
-      </div>
+  <main id="command" class="max-w-[920px] mx-auto px-5 md:px-0 pt-8 pb-20">
+    <section id="intake">
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-5"><div><p class="mono text-[11px] tracking-[.18em] text-[#a99aff]">ASSET DISCOVERY CONSOLE</p><h1 class="text-2xl font-semibold tracking-tight mt-1">Locate visual matches. Build a defensible record.</h1></div><div id="routeButtons" class="flex rounded-lg border line p-1 text-xs"><button data-route="commercial" class="route rounded px-3 py-1.5 bg-white text-black">Commercial protection</button><button data-route="personal" class="route rounded px-3 py-1.5 text-zinc-400">Identity security</button></div></div>
 
-      <div class="flex justify-center gap-2 mt-8" id="routeButtons">
-        <button data-route="commercial" class="route px-4 py-2 rounded-lg text-sm thin bg-white text-zinc-950">Commercial brand protection</button>
-        <button data-route="personal" class="route px-4 py-2 rounded-lg text-sm thin text-zinc-400">Personal identity security</button>
-      </div>
-
-      <label id="dropzone" class="drop mt-8 h-64 rounded-2xl flex flex-col justify-center items-center cursor-pointer transition duration-300 relative overflow-hidden">
+      <label id="dropzone" class="dropzone rounded-2xl relative overflow-hidden flex flex-col items-center justify-center text-center cursor-pointer px-6">
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
-        <img id="preview" alt="Uploaded asset preview" class="hidden absolute inset-0 w-full h-full object-cover opacity-55" />
-        <div id="dropCopy" class="text-center relative">
-          <div class="w-12 h-12 rounded-xl thin mx-auto mb-4 grid place-content-center bg-zinc-900/80 text-lg">↑</div>
-          <p class="font-medium">Drop a product or asset image</p>
-          <p class="text-sm text-zinc-500 mt-1">JPG, PNG or WebP · 25 MB maximum</p>
-        </div>
+        <img id="preview" alt="Uploaded asset preview" class="hidden absolute inset-0 w-full h-full object-cover opacity-25" />
+        <div class="relative max-w-md"><div class="upload-icon w-20 h-20 rounded-2xl grid place-content-center mx-auto mb-6"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#aaa8ba" stroke-width="1.6"><path d="M12 16V3m0 0 5 5m-5-5L7 8M5 14v4a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><p id="dropTitle" class="text-lg font-semibold">Drop a protected asset here</p><p id="dropCopy" class="text-sm leading-6 text-zinc-400 mt-3">Upload original product photography, packaging, artwork, or digital media to search public visual matches.</p><span class="inline-flex mt-6 button-primary px-6 py-3 rounded-lg font-semibold text-xs tracking-[.13em]">SELECT SOURCE FILE</span><p class="mono text-[10px] text-zinc-500 mt-5">JPG / PNG / WEBP &nbsp;•&nbsp; MAXIMUM 25 MB</p></div>
       </label>
 
-      <section class="thin rounded-2xl mt-5 p-5 bg-zinc-900/35">
-        <div class="flex items-start justify-between gap-4 mb-4"><div><h2 class="font-medium">Rights context</h2><p class="text-xs text-zinc-500 mt-1">Used to exclude known sellers and make the review meaningful. No credentials are stored here.</p></div><span class="text-[10px] text-zinc-500 uppercase tracking-[.16em]">Optional</span></div>
-        <div class="grid md:grid-cols-2 gap-3">
-          <label class="text-xs text-zinc-400">Asset / product name<input id="assetName" maxlength="240" placeholder="e.g. Arc travel backpack" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
-          <label class="text-xs text-zinc-400">Brand or rights holder<input id="brandName" maxlength="160" placeholder="e.g. Northstar Goods" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
-          <label class="text-xs text-zinc-400">Jurisdiction<input id="jurisdiction" maxlength="120" placeholder="e.g. Philippines / international" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
-          <label class="text-xs text-zinc-400">Approved domains to exclude<input id="officialDomains" maxlength="500" placeholder="yourbrand.com, authorized-shop.com" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
-          <label class="text-xs text-zinc-400">Product identifiers<input id="identifiers" maxlength="300" placeholder="Model, SKU, serial range, registered design…" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
-          <label class="text-xs text-zinc-400">Known authorized sellers<input id="authorizedSellers" maxlength="300" placeholder="Retailer names or marketplace storefronts" class="mt-1.5 w-full rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600" /></label>
-        </div>
-        <label class="block text-xs text-zinc-400 mt-3">Distinctive features to assess<textarea id="assetDescription" maxlength="600" rows="2" placeholder="Visible marks, packaging, colorways, design details, or digital-art elements that should be compared." class="mt-1.5 w-full resize-none rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600"></textarea></label>
-        <label class="block text-xs text-zinc-400 mt-3">Rights basis / registration details<textarea id="rightsBasis" maxlength="400" rows="2" placeholder="e.g. Original product photography; registered mark no. …" class="mt-1.5 w-full resize-none rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600"></textarea></label>
-      </section>
-      <button id="analyzeButton" disabled class="mt-5 w-full py-3 rounded-xl bg-indigo-400 text-zinc-950 font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition hover:bg-indigo-300">Find candidate listings</button>
-      <p class="text-[11px] text-zinc-600 mt-4 text-center">Images upload directly to protected Blob storage; searches and AI analysis run server-side. API credentials never enter the browser.</p>
+      <details class="panel rounded-xl mt-4 group"><summary class="cursor-pointer list-none px-5 py-4 flex items-center justify-between"><span><b class="text-sm">Add rights context</b><span class="text-xs text-zinc-500 ml-2">Improves triage and notice quality</span></span><span class="mono text-xs text-indigo-300 group-open:rotate-45 transition">+</span></summary><div class="px-5 pb-5 border-t line pt-4"><div class="grid md:grid-cols-2 gap-3"><label class="text-[11px] text-zinc-400">Asset / product name<input id="assetName" maxlength="240" placeholder="e.g. Arc travel backpack" class="mt-1.5 w-full bg-black/30 border line rounded-lg px-3 py-2.5 text-sm text-white" /></label><label class="text-[11px] text-zinc-400">Brand or rights holder<input id="brandName" maxlength="160" placeholder="e.g. Northstar Goods" class="mt-1.5 w-full bg-black/30 border line rounded-lg px-3 py-2.5 text-sm text-white" /></label><label class="text-[11px] text-zinc-400">Jurisdiction<input id="jurisdiction" maxlength="120" placeholder="e.g. Philippines / international" class="mt-1.5 w-full bg-black/30 border line rounded-lg px-3 py-2.5 text-sm text-white" /></label><label class="text-[11px] text-zinc-400">Approved domains to exclude<input id="officialDomains" maxlength="500" placeholder="yourbrand.com, authorized-shop.com" class="mt-1.5 w-full bg-black/30 border line rounded-lg px-3 py-2.5 text-sm text-white" /></label><label class="text-[11px] text-zinc-400">Product identifiers<input id="identifiers" maxlength="300" placeholder="Model, SKU, serial range" class="mt-1.5 w-full bg-black/30 border line rounded-lg px-3 py-2.5 text-sm text-white" /></label><label class="text-[11px] text-zinc-400">Known authorized sellers<input id="authorizedSellers" maxlength="300" placeholder="Retailers or storefronts" class="mt-1.5 w-full bg-black/30 border line rounded-lg px-3 py-2.5 text-sm text-white" /></label></div><label class="block text-[11px] text-zinc-400 mt-3">Distinctive features<textarea id="assetDescription" maxlength="600" rows="2" placeholder="Visible marks, packaging, colourways, design details, or digital-art elements." class="mt-1.5 w-full resize-none bg-black/30 border line rounded-lg px-3 py-2.5 text-sm text-white"></textarea></label><label class="block text-[11px] text-zinc-400 mt-3">Rights basis / registration details<textarea id="rightsBasis" maxlength="400" rows="2" placeholder="Original product photography; registered mark number; design registration…" class="mt-1.5 w-full resize-none bg-black/30 border line rounded-lg px-3 py-2.5 text-sm text-white"></textarea></label></div></details>
+      <button id="analyzeButton" disabled class="button-primary disabled:opacity-35 disabled:cursor-not-allowed mt-4 w-full py-3.5 rounded-lg font-bold text-xs tracking-[.15em]">RUN PROTECTED ANALYSIS</button>
+      <p class="mono text-[10px] tracking-wide text-zinc-500 text-center mt-4">YOUR SOURCE FILE IS SENT TO A SECURE SERVER RELAY • API KEYS NEVER ENTER THE BROWSER</p>
+
+      <section class="mt-8"><div class="flex items-center gap-4"><p class="mono text-[11px] tracking-[.15em] text-zinc-400 whitespace-nowrap">PROTECTION COVERAGE</p><div class="h-px bg-zinc-800 flex-1"></div><span class="mono text-[10px] text-zinc-600">LIVE SEARCH</span></div><div class="grid md:grid-cols-3 gap-3 mt-4"><article class="panel rounded-xl p-4"><p class="text-sm font-semibold">Physical products</p><p class="text-xs leading-5 text-zinc-500 mt-2">Packaging, consumer goods, product design and catalogue imagery.</p></article><article class="panel rounded-xl p-4"><p class="text-sm font-semibold">Digital works</p><p class="text-xs leading-5 text-zinc-500 mt-2">Artwork, campaign creatives, design systems and original media.</p></article><article class="panel rounded-xl p-4"><p class="text-sm font-semibold">Identity misuse</p><p class="text-xs leading-5 text-zinc-500 mt-2">Public visual matches requiring privacy or impersonation review.</p></article></div></section>
     </section>
 
-    <section id="dashboard" class="hidden">
-      <div id="tracker" class="thin rounded-2xl p-5 sheen mb-6">
-        <div class="flex items-center justify-between gap-4"><div><p class="text-xs text-zinc-500 uppercase tracking-[.16em]">Case analysis</p><p id="statusText" class="font-medium mt-1">Preparing secure analysis</p></div><span id="modeBadge" class="text-xs px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400">Preparing</span></div>
-        <div class="h-1 bg-zinc-800 rounded-full overflow-hidden mt-5"><div id="progress" class="h-full bg-gradient-to-r from-indigo-400 to-violet-300 w-[12%] transition-all duration-500"></div></div>
+    <section id="dashboard" class="hidden mt-8">
+      <div id="tracker" class="panel rounded-xl px-5 py-4"><div class="flex justify-between items-center gap-4"><div><p class="mono text-[10px] text-indigo-300 tracking-[.16em]">CASE PROCESSOR</p><p id="statusText" class="text-sm font-medium mt-1">Preparing secure analysis</p></div><span id="modeBadge" class="mono text-[10px] border line px-2 py-1 rounded text-zinc-400">PREPARING</span></div><div class="mt-4 h-1 rounded bg-zinc-800 overflow-hidden"><div id="progress" class="h-full bg-[#6947ff] transition-all duration-500 w-[10%]"></div></div></div>
+      <div id="errorBox" class="hidden border border-red-400/20 bg-red-500/5 text-red-200 rounded-xl px-5 py-4 mt-4 text-sm"></div>
+      <div id="results" class="hidden mt-7">
+        <div class="flex flex-wrap justify-between items-end gap-4"><div><p class="mono text-[11px] tracking-[.17em] text-indigo-300">EVIDENCE LEDGER</p><h2 class="text-3xl font-semibold mt-1">Candidate visual matches</h2><p id="summary" class="text-sm text-zinc-400 mt-2 max-w-2xl"></p></div><div class="panel rounded-xl px-4 py-3 min-w-40"><p class="mono text-[9px] text-zinc-500">AI VISUAL-LIKENESS SCORE</p><p id="overallScore" class="text-3xl font-semibold mt-1">—</p></div></div>
+        <section class="panel rounded-xl p-5 mt-5"><div class="flex justify-between gap-3"><p class="mono text-[11px] tracking-[.15em] text-indigo-300">AI FINDINGS</p><p id="comparisonMode" class="mono text-[9px] text-zinc-500 text-right"></p></div><p id="findingsSummary" class="text-sm leading-6 text-zinc-300 mt-3"></p><div class="grid md:grid-cols-2 gap-6 mt-4"><div><p class="mono text-[10px] text-zinc-500">KEY SIGNALS</p><ul id="riskFactors" class="list-disc pl-4 mt-2 space-y-1 text-sm text-zinc-300"></ul></div><div><p class="mono text-[10px] text-zinc-500">RECOMMENDED NEXT STEPS</p><ul id="recommendedActions" class="list-disc pl-4 mt-2 space-y-1 text-sm text-zinc-300"></ul></div></div><p id="limitations" class="text-xs text-zinc-500 mt-4"></p></section>
+        <section id="selectionPanel" class="panel rounded-xl p-5 mt-5 hidden"><div class="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p class="mono text-[10px] text-indigo-300 tracking-[.15em]">SELECTED ENFORCEMENT TARGET</p><p id="selectedTarget" class="font-semibold mt-1"></p><p id="selectedTargetMeta" class="text-xs text-zinc-400 mt-1"></p></div><button id="generateNotice" class="button-primary rounded-lg px-5 py-3 text-xs font-bold tracking-wide">GENERATE TARGETED NOTICE</button></div></section>
+        <div id="cards" class="grid lg:grid-cols-2 gap-4 mt-5"></div>
+        <section id="documentPanel" class="hidden panel rounded-xl p-5 mt-6"><div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p id="documentTitle" class="mono text-xs text-indigo-300 tracking-[.12em]"></p><p class="text-sm text-zinc-500 mt-1">Draft for rights-holder or counsel review before delivery.</p></div><button id="exportPdf" class="rounded-lg bg-white text-black px-4 py-2.5 font-bold text-xs">EXPORT DRAFT PDF</button></div><pre id="documentText" class="mono whitespace-pre-wrap text-sm leading-6 text-zinc-300 mt-5 max-h-[32rem] overflow-auto"></pre></section>
       </div>
-
-      <div id="results" class="hidden">
-        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6"><div><p class="text-xs text-indigo-300 uppercase tracking-[.16em]">Top candidate listings</p><h2 class="text-3xl font-semibold tracking-tight mt-1">Evidence overview</h2><p id="summary" class="text-zinc-400 text-sm mt-2"></p></div><div class="thin rounded-xl px-4 py-3 min-w-36"><span class="text-zinc-500 text-xs">AI risk signal</span><p id="overallScore" class="text-2xl font-semibold">—</p></div></div>
-
-        <section id="findingsPanel" class="thin rounded-2xl p-5 mb-5 bg-zinc-900/35">
-          <div class="flex items-center justify-between gap-3"><p class="text-xs text-indigo-300 uppercase tracking-[.16em]">AI findings</p><span class="text-[10px] text-zinc-500">Triage signals, not a legal conclusion</span></div>
-          <p id="comparisonMode" class="text-[11px] text-zinc-500 mt-2"></p>
-          <p id="findingsSummary" class="text-sm leading-6 text-zinc-300 mt-3"></p>
-          <div class="grid md:grid-cols-2 gap-5 mt-4"><div><p class="text-xs text-zinc-500 uppercase tracking-[.12em]">Key signals</p><ul id="riskFactors" class="mt-2 space-y-1.5 text-sm text-zinc-300 list-disc pl-4"></ul></div><div><p class="text-xs text-zinc-500 uppercase tracking-[.12em]">Recommended next steps</p><ul id="recommendedActions" class="mt-2 space-y-1.5 text-sm text-zinc-300 list-disc pl-4"></ul></div></div>
-          <p id="limitations" class="text-xs text-zinc-500 mt-4"></p>
-        </section>
-
-        <section id="selectionPanel" class="thin rounded-2xl p-5 mb-5 bg-indigo-400/[.045] hidden">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p class="text-xs text-indigo-300 uppercase tracking-[.16em]">Selected enforcement target</p><p id="selectedTarget" class="font-medium mt-1"></p><p id="selectedTargetMeta" class="text-xs text-zinc-400 mt-1"></p></div><button id="generateNotice" class="rounded-lg bg-white text-zinc-950 text-sm font-medium px-4 py-2 hover:bg-zinc-200">Generate targeted notice</button></div>
-        </section>
-        <div class="grid lg:grid-cols-2 gap-4" id="cards"></div>
-
-        <section id="documentPanel" class="hidden thin rounded-2xl p-5 mt-6 sheen">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><div><p id="documentTitle" class="text-xs text-indigo-300 tracking-[.14em] uppercase"></p><p class="text-zinc-500 text-sm mt-1">Draft for rights-holder or counsel review before delivery.</p></div><button id="exportPdf" class="rounded-lg bg-white text-zinc-950 text-sm font-medium px-4 py-2 hover:bg-zinc-200">Export Draft PDF</button></div>
-          <pre id="documentText" class="font-sans whitespace-pre-wrap text-sm leading-6 text-zinc-300 mt-5 max-h-[32rem] overflow-auto"></pre>
-        </section>
-      </div>
-      <div id="errorBox" class="hidden thin rounded-xl p-5 mt-5 text-red-200 bg-red-500/5"></div>
-      <button id="startOver" class="hidden mt-5 text-xs text-zinc-500 hover:text-white">← Start another case</button>
+      <button id="startOver" class="hidden mono text-[11px] text-zinc-500 hover:text-white mt-6">← START ANOTHER CASE</button>
     </section>
   </main>
-
   <script>
-    const $ = selector => document.querySelector(selector);
-    const state = { route: 'commercial', file: null, previewUrl: null, report: null, selectedIndex: null, document: null };
-    const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    const $ = s => document.querySelector(s), state = { route:'commercial', file:null, previewUrl:null, report:null, selectedIndex:null, document:null };
+    const escapeHtml = (v='') => String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
     const field = id => $(id).value.trim();
-
-    function setStatus(text, progress, mode, active = true) { $('#statusText').textContent = text; $('#progress').style.width = `${progress}%`; $('#modeBadge').textContent = mode; $('#tracker').classList.toggle('pulse', active); }
-    function showError(message) { $('#errorBox').textContent = message; $('#errorBox').classList.remove('hidden'); }
-    function clearError() { $('#errorBox').classList.add('hidden'); }
-
-    function chooseFile(file) {
-      if (!file) return;
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return showError('Please use a JPG, PNG, or WebP image.');
-      if (file.size > 25 * 1024 * 1024) return showError('Images must be 25 MB or smaller.');
-      state.file = file;
-      if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
-      state.previewUrl = URL.createObjectURL(file);
-      $('#preview').src = state.previewUrl; $('#preview').classList.remove('hidden');
-      $('#dropCopy').innerHTML = `<p class="font-medium">${escapeHtml(file.name)}</p><p class="text-sm text-zinc-300 mt-1">Ready for protected analysis</p>`;
-      if (!field('#assetName')) $('#assetName').value = file.name.replace(/\.[^.]+$/, '');
-      $('#analyzeButton').disabled = false; clearError();
-    }
-
-    function caseContext() {
-      return { asset_name: field('#assetName') || state.file.name, brand_name: field('#brandName'), rights_holder: field('#brandName'), rights_basis: field('#rightsBasis'), jurisdiction: field('#jurisdiction'), asset_description: field('#assetDescription'), identifiers: field('#identifiers'), authorized_sellers: field('#authorizedSellers') };
-    }
-
-    async function readJson(response) {
-      const text = await response.text();
-      try { return JSON.parse(text); }
-      catch { throw new Error(`The server returned ${response.status} instead of an API response. Redeploy the Likeness API and try again.`); }
-    }
-
-    async function analyze() {
-      if (!state.file) return;
-      $('#intake').classList.add('hidden'); $('#dashboard').classList.remove('hidden'); $('#results').classList.add('hidden'); $('#documentPanel').classList.add('hidden'); clearError();
-      try {
-        setStatus('Uploading product evidence securely', 16, 'Secure upload');
-        const { upload } = await import('https://esm.sh/@vercel/blob@2.1.0/client');
-        const cleanFilename = state.file.name.replace(/[^A-Za-z0-9._-]/g, '_');
-        const blob = await upload(`likeness-intake/${crypto.randomUUID()}-${cleanFilename}`, state.file, {
-          access: 'public', handleUploadUrl: '/api/upload',
-          multipart: state.file.size > 4 * 1024 * 1024,
-          onUploadProgress: progress => setStatus(`Uploading product evidence (${progress.percentage}%)`, Math.max(16, Math.round(progress.percentage * .42)), 'Secure upload'),
-        });
-        const form = new FormData(); form.append('image_url', blob.url); form.append('route', state.route);
-        form.append('asset_name', field('#assetName')); form.append('brand_name', field('#brandName')); form.append('rights_holder', field('#brandName'));
-        form.append('rights_basis', field('#rightsBasis')); form.append('jurisdiction', field('#jurisdiction')); form.append('official_domains', field('#officialDomains'));
-        form.append('asset_description', field('#assetDescription')); form.append('identifiers', field('#identifiers')); form.append('authorized_sellers', field('#authorizedSellers'));
-        setStatus('Searching visual listings and triaging candidates', 58, 'Live analysis');
-        const response = await fetch('/api/cases', { method: 'POST', body: form }); const payload = await readJson(response);
-        if (!response.ok) throw new Error(payload.detail || 'Secure asset intake failed.');
-        state.report = payload; state.selectedIndex = payload.matches.length ? 0 : null; state.document = null;
-        setStatus(`${payload.matches.length} candidate listings ranked`, 100, 'Live analysis', false); renderReport(); $('#startOver').classList.remove('hidden');
-      } catch (error) { setStatus('Analysis needs attention', 100, 'Request failed', false); showError(error.message); $('#startOver').classList.remove('hidden'); }
-    }
-
-    function selectedMatch() { return state.selectedIndex === null ? null : state.report.matches[state.selectedIndex]; }
-    function selectTarget(index) { state.selectedIndex = index; state.document = null; $('#documentPanel').classList.add('hidden'); renderReport(); }
-    function displayText(value, fallback = 'Not listed') { if (typeof value === 'string' || typeof value === 'number') return String(value); if (value && typeof value === 'object') return String(value.display_price || value.extracted_price || value.price || value.value || value.text || fallback); return fallback; }
-    function noticeTarget(match) { return { title: String(match.title || 'Untitled listing'), url: String(match.url || ''), domain: String(match.domain || ''), platform: String(match.platform || 'Web publisher'), price: displayText(match.price), confidence: Number(match.confidence || 0), threat_level: String(match.threat_level || 'Moderate'), rationale: String(match.rationale || 'Similarity signal requires human review.'), timestamp: String(match.timestamp || '') }; }
-    function renderBullets(id, values) { $(id).innerHTML = (Array.isArray(values) ? values : []).map(value => `<li>${escapeHtml(value)}</li>`).join(''); }
-
-    function renderReport() {
-      const report = state.report; const target = selectedMatch();
-      report.matches.forEach(match => { match.price = displayText(match.price); });
-      $('#summary').textContent = report.summary; $('#overallScore').textContent = `${report.overall_confidence}%`; $('#results').classList.remove('hidden');
-      document.querySelector('#results .min-w-36 span').textContent = 'AI visual-likeness score';
-      const findings = report.ai_findings || {};
-      $('#findingsSummary').textContent = findings.summary || report.summary;
-      renderBullets('#riskFactors', findings.risk_factors || ['Visual-search results require comparison against the rights holder\'s original asset.']);
-      renderBullets('#recommendedActions', findings.recommended_actions || ['Review the selected listing and preserve a dated copy of the page before taking action.']);
-      $('#limitations').textContent = `Limitations: ${(findings.limitations || ['This triage is based on public search-result metadata and does not determine legal liability.']).join(' ')}`;
-      $('#comparisonMode').textContent = `Comparison method: ${findings.comparison_mode || 'Metadata only'}. The percentage is a visual-likeness triage score, not an infringement finding.`;
-      $('#selectionPanel').classList.toggle('hidden', !target);
-      if (target) { $('#selectedTarget').textContent = target.title; $('#selectedTargetMeta').textContent = `${target.platform} · ${target.domain} · ${target.confidence}% risk signal`; }
-      if (target) $('#selectedTargetMeta').textContent = `${target.platform} | ${target.domain} | ${target.confidence}% visual likeness`;
-      $('#cards').innerHTML = report.matches.map((m, index) => `<article class="thin rounded-2xl overflow-hidden bg-zinc-900/35 transition ${index === state.selectedIndex ? 'selected-card' : ''}"><div class="grid grid-cols-2 h-44"><div class="bg-zinc-800 relative">${index === 0 ? `<img src="${state.previewUrl}" class="w-full h-full object-cover opacity-80" alt="Original uploaded asset">` : '<div class="h-full grid place-content-center text-xs text-zinc-500">Original asset</div>'}<span class="absolute top-2 left-2 text-[10px] bg-black/55 px-2 py-1 rounded">Original</span></div><div class="bg-zinc-950 grid place-content-center text-xs text-zinc-600 relative">${m.thumbnail ? `<img src="${escapeHtml(m.thumbnail)}" referrerpolicy="no-referrer" class="w-full h-full object-cover opacity-65" alt="Matched web image">` : 'External reference'}<span class="absolute top-2 left-2 text-[10px] bg-black/55 px-2 py-1 rounded">${escapeHtml(m.source_type || 'Match')}</span></div></div><div class="p-4"><div class="flex justify-between gap-2"><p class="font-medium text-sm leading-5">${escapeHtml(m.title)}</p><span class="shrink-0 text-xs px-2 py-1 h-fit rounded ${['Critical','High'].includes(m.threat_level) ? 'bg-red-400/15 text-red-300' : 'bg-amber-300/10 text-amber-200'}">${escapeHtml(m.threat_level)}</span></div><div class="flex items-center justify-between mt-4"><span class="text-xl font-semibold">${m.confidence}%</span><span class="text-xs text-zinc-500">${escapeHtml(m.price)}</span></div><p class="text-xs text-zinc-400 mt-3">${escapeHtml(m.rationale)}</p><p class="text-[11px] text-zinc-500 mt-2">Evidence: ${escapeHtml(m.evidence_basis || 'Search metadata')}</p><div class="mt-4 pt-3 border-t border-white/10 text-[11px] text-zinc-500 flex justify-between gap-2"><span>${escapeHtml(m.platform)}</span><span class="text-right">${escapeHtml(m.timestamp)}</span></div><div class="flex items-center justify-between gap-3 mt-3"><a href="${escapeHtml(m.url)}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-300 truncate">${escapeHtml(m.domain)}</a><div class="flex gap-2 shrink-0"><button class="copy text-zinc-400 hover:text-white text-xs" data-url="${escapeHtml(m.url)}">Copy</button><button class="target text-xs px-2.5 py-1 rounded-md ${index === state.selectedIndex ? 'bg-indigo-300 text-zinc-950' : 'thin text-zinc-300 hover:bg-white/5'}" data-index="${index}">${index === state.selectedIndex ? 'Selected' : 'Select'}</button></div></div></div></article>`).join('');
-      document.querySelectorAll('#cards article').forEach((card, index) => {
-        const match = report.matches[index]; const details = document.createElement('div');
-        const similarities = (match.similarities || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
-        const differences = (match.differences || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
-        details.className = 'mt-3 pt-3 border-t border-white/10 text-[11px] leading-5 text-zinc-400';
-        details.innerHTML = `<div class="grid grid-cols-3 gap-2 text-center"><span>Visual<br><b class="text-zinc-200">${Number(match.visual_similarity || 0)}%</b></span><span>Title<br><b class="text-zinc-200">${Number(match.title_similarity || 0)}%</b></span><span>Metadata<br><b class="text-zinc-200">${Number(match.metadata_similarity || 0)}%</b></span></div>${similarities ? `<p class="text-zinc-500 mt-2">Observed similarities</p><ul class="list-disc pl-4">${similarities}</ul>` : ''}${differences ? `<p class="text-zinc-500 mt-2">Observed differences</p><ul class="list-disc pl-4">${differences}</ul>` : ''}`;
-        card.querySelector('.p-4').append(details);
-      });
-      document.querySelectorAll('.copy').forEach(button => button.addEventListener('click', async () => { await navigator.clipboard.writeText(button.dataset.url); button.textContent = 'Copied'; setTimeout(() => button.textContent = 'Copy', 1200); }));
-      document.querySelectorAll('.target').forEach(button => button.addEventListener('click', () => selectTarget(Number(button.dataset.index))));
-      if (state.document) renderDocument();
-    }
-
-    async function generateNotice() {
-      const target = selectedMatch(); if (!target) return;
-      clearError(); $('#generateNotice').disabled = true; $('#generateNotice').textContent = 'Drafting notice…';
-      try {
-        setStatus('Preparing selected enforcement notice', 82, 'Legal draft');
-        const response = await fetch('/api/notices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ route: state.route, ...state.report.case, target: noticeTarget(target) }) });
-        const payload = await readJson(response); if (!response.ok) throw new Error(payload.detail || 'Notice drafting failed.');
-        state.document = payload.document; setStatus('Targeted enforcement draft ready', 100, 'Legal draft', false); renderDocument();
-      } catch (error) { setStatus('Notice needs attention', 100, 'Request failed', false); showError(error.message); }
-      finally { $('#generateNotice').disabled = false; $('#generateNotice').textContent = 'Generate targeted notice'; }
-    }
-
-    function renderDocument() { $('#documentTitle').textContent = state.document.title; $('#documentText').textContent = state.document.body; $('#documentPanel').classList.remove('hidden'); $('#documentPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-
-    function exportPdf() {
-      if (!state.document) return; const { jsPDF } = window.jspdf; const pdf = new jsPDF({ unit:'mm', format:'a4' }); const target = selectedMatch();
-      pdf.setFillColor(9,9,11); pdf.rect(0,0,210,297,'F'); pdf.setTextColor(244,244,245); pdf.setFont('helvetica','bold'); pdf.setFontSize(16); pdf.text('LIKENESS', 18, 18); pdf.setFontSize(11); pdf.text(state.document.title, 18, 28); pdf.setDrawColor(99,102,241); pdf.line(18,34,192,34); pdf.setFont('helvetica','normal'); pdf.setFontSize(9.5);
-      let y = 44; const addLines = lines => { lines.forEach(line => { if (y > 278) { pdf.addPage(); pdf.setFillColor(9,9,11); pdf.rect(0,0,210,297,'F'); pdf.setTextColor(244,244,245); y = 20; } pdf.text(line, 18, y); y += 4.5; }); };
-      addLines(pdf.splitTextToSize(state.document.body, 174)); y += 5; pdf.setFont('helvetica','bold'); addLines(['Selected evidence target']); pdf.setFont('helvetica','normal'); addLines(pdf.splitTextToSize(`${target.title}\n${target.url}\nRisk signal: ${target.confidence}% · ${target.threat_level}\nCaptured: ${target.timestamp}`, 174));
-      pdf.save('likeness-enforcement-draft.pdf');
-    }
-
-    document.querySelectorAll('.route').forEach(button => button.addEventListener('click', () => { state.route = button.dataset.route; document.querySelectorAll('.route').forEach(item => item.className = `route px-4 py-2 rounded-lg text-sm thin ${item === button ? 'bg-white text-zinc-950' : 'text-zinc-400'}`); }));
-    $('#fileInput').addEventListener('change', event => chooseFile(event.target.files[0]));
-    ['dragover','dragleave','drop'].forEach(eventName => $('#dropzone').addEventListener(eventName, event => { event.preventDefault(); $('#dropzone').classList.toggle('over', eventName === 'dragover'); }));
-    $('#dropzone').addEventListener('drop', event => chooseFile(event.dataTransfer.files[0]));
-    $('#analyzeButton').addEventListener('click', analyze); $('#generateNotice').addEventListener('click', generateNotice); $('#exportPdf').addEventListener('click', exportPdf);
-    $('#startOver').addEventListener('click', () => { $('#dashboard').classList.add('hidden'); $('#intake').classList.remove('hidden'); clearError(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    function setStatus(text,progress,mode,active=true){ $('#statusText').textContent=text; $('#progress').style.width=`${progress}%`; $('#modeBadge').textContent=mode.toUpperCase(); $('#tracker').classList.toggle('pulse',active); }
+    function showError(message){ $('#errorBox').textContent=message; $('#errorBox').classList.remove('hidden'); } function clearError(){ $('#errorBox').classList.add('hidden'); }
+    function chooseFile(file){ if(!file)return; if(!['image/jpeg','image/png','image/webp'].includes(file.type))return showError('Please use a JPG, PNG, or WebP image.'); if(file.size>25*1024*1024)return showError('Images must be 25 MB or smaller.'); state.file=file; if(state.previewUrl)URL.revokeObjectURL(state.previewUrl); state.previewUrl=URL.createObjectURL(file); $('#preview').src=state.previewUrl; $('#preview').classList.remove('hidden'); $('#dropTitle').textContent=file.name; $('#dropCopy').textContent='Source asset ready for protected visual analysis.'; if(!field('#assetName'))$('#assetName').value=file.name.replace(/\.[^.]+$/,''); $('#analyzeButton').disabled=false; clearError(); }
+    async function readJson(response){const text=await response.text();try{return JSON.parse(text);}catch{throw new Error(`The server returned ${response.status} instead of an API response.`);}}
+    function displayText(v,fallback='Not listed'){if(typeof v==='string'||typeof v==='number')return String(v);if(v&&typeof v==='object')return String(v.display_price||v.extracted_price||v.price||v.value||v.text||fallback);return fallback;}
+    function selectedMatch(){return state.selectedIndex===null?null:state.report.matches[state.selectedIndex];} function selectTarget(i){state.selectedIndex=i;state.document=null;$('#documentPanel').classList.add('hidden');renderReport();}
+    function noticeTarget(m){return {title:String(m.title||'Untitled listing'),url:String(m.url||''),domain:String(m.domain||''),platform:String(m.platform||'Web publisher'),price:displayText(m.price),confidence:Number(m.confidence||0),threat_level:String(m.threat_level||'Moderate'),rationale:String(m.rationale||''),timestamp:String(m.timestamp||'')};}
+    function bullets(id,items){$(id).innerHTML=(items||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('');}
+    async function analyze(){if(!state.file)return; $('#dashboard').classList.remove('hidden'); $('#results').classList.add('hidden'); $('#documentPanel').classList.add('hidden'); clearError(); try{setStatus('Authorizing secure asset upload',14,'Secure upload');const {upload}=await import('https://esm.sh/@vercel/blob@2.1.0/client');const clean=state.file.name.replace(/[^A-Za-z0-9._-]/g,'_');const blob=await upload(`likeness-intake/${crypto.randomUUID()}-${clean}`,state.file,{access:'public',handleUploadUrl:'/api/upload',multipart:state.file.size>4*1024*1024,onUploadProgress:p=>setStatus(`Uploading source asset (${p.percentage}%)`,Math.max(14,Math.round(p.percentage*.42)),'Secure upload')});const form=new FormData();form.append('image_url',blob.url);form.append('route',state.route);[['asset_name','#assetName'],['brand_name','#brandName'],['rights_holder','#brandName'],['rights_basis','#rightsBasis'],['jurisdiction','#jurisdiction'],['official_domains','#officialDomains'],['asset_description','#assetDescription'],['identifiers','#identifiers'],['authorized_sellers','#authorizedSellers']].forEach(([n,id])=>form.append(n,field(id)));setStatus('Searching visual listings and assessing evidence',58,'Live analysis');const response=await fetch('/api/cases',{method:'POST',body:form}),payload=await readJson(response);if(!response.ok)throw new Error(payload.detail||'Secure asset intake failed.');state.report=payload;state.selectedIndex=payload.matches.length?0:null;state.document=null;setStatus(`${payload.matches.length} candidate listings ranked`,100,'Analysis ready',false);renderReport();$('#startOver').classList.remove('hidden');}catch(e){setStatus('Analysis needs attention',100,'Request failed',false);showError(e.message);$('#startOver').classList.remove('hidden');}}
+    function renderReport(){const report=state.report,target=selectedMatch(),findings=report.ai_findings||{};report.matches.forEach(m=>m.price=displayText(m.price));$('#summary').textContent=report.summary;$('#overallScore').textContent=`${report.overall_confidence}%`;$('#results').classList.remove('hidden');$('#findingsSummary').textContent=findings.summary||report.summary;$('#comparisonMode').textContent=`METHOD: ${findings.comparison_mode||'Metadata only'}`;bullets('#riskFactors',findings.risk_factors||['Visual-search results require rights-holder review.']);bullets('#recommendedActions',findings.recommended_actions||['Preserve a dated copy before taking action.']);$('#limitations').textContent=`Limitations: ${(findings.limitations||['This triage does not determine legal liability.']).join(' ')}`;$('#selectionPanel').classList.toggle('hidden',!target);if(target){$('#selectedTarget').textContent=target.title;$('#selectedTargetMeta').textContent=`${target.platform} | ${target.domain} | ${target.confidence}% visual likeness`;}
+      $('#cards').innerHTML=report.matches.map((m,i)=>`<article class="panel rounded-xl overflow-hidden ${i===state.selectedIndex?'selected':''}"><div class="grid grid-cols-2 h-52"><div class="bg-zinc-900 relative">${i===0?`<img src="${state.previewUrl}" class="w-full h-full object-cover opacity-80">`:'<div class="h-full grid place-content-center text-xs text-zinc-600">ORIGINAL ASSET</div>'}<span class="absolute top-3 left-3 mono text-[9px] bg-black/70 px-2 py-1 rounded">ORIGINAL</span></div><div class="bg-black relative">${typeof m.thumbnail==='string'?`<img src="${escapeHtml(m.thumbnail)}" referrerpolicy="no-referrer" class="w-full h-full object-cover opacity-70">`:'<div class="h-full grid place-content-center text-xs text-zinc-600">LISTING REFERENCE</div>'}<span class="absolute top-3 left-3 mono text-[9px] bg-black/70 px-2 py-1 rounded">${escapeHtml(m.source_type||'MATCH')}</span></div></div><div class="p-5"><div class="flex justify-between gap-3"><p class="font-semibold text-sm leading-5">${escapeHtml(m.title)}</p><span class="shrink-0 mono text-[10px] px-2 py-1 h-fit rounded border ${['Critical','High'].includes(m.threat_level)?'border-red-400/40 text-red-300':'border-amber-300/30 text-amber-200'}">${escapeHtml(m.threat_level)}</span></div><div class="flex justify-between items-end mt-4"><div><span class="text-3xl font-semibold">${m.confidence}%</span><span class="mono text-[9px] text-zinc-500 ml-2">VISUAL LIKENESS</span></div><span class="text-xs text-zinc-500">${escapeHtml(m.price)}</span></div><p class="text-sm text-zinc-400 mt-3">${escapeHtml(m.rationale)}</p><div class="grid grid-cols-3 gap-2 mt-4 text-center mono text-[10px] text-zinc-500"><span>VISUAL<br><b class="text-zinc-200 text-sm">${Number(m.visual_similarity||0)}%</b></span><span>TITLE<br><b class="text-zinc-200 text-sm">${Number(m.title_similarity||0)}%</b></span><span>META<br><b class="text-zinc-200 text-sm">${Number(m.metadata_similarity||0)}%</b></span></div><div class="mt-4 pt-3 border-t line text-xs leading-5 text-zinc-400"><p class="mono text-[9px] text-zinc-500">OBSERVED SIMILARITIES</p><ul class="list-disc pl-4 mt-1">${(m.similarities||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>${(m.differences||[]).length?`<p class="mono text-[9px] text-zinc-500 mt-3">OBSERVED DIFFERENCES</p><ul class="list-disc pl-4 mt-1">${m.differences.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`:''}</div><div class="flex items-center justify-between gap-3 mt-4"><a href="${escapeHtml(m.url)}" target="_blank" rel="noopener" class="text-xs text-indigo-300 truncate">${escapeHtml(m.domain)}</a><div class="flex gap-2"><button class="copy mono text-[10px] text-zinc-400" data-url="${escapeHtml(m.url)}">COPY</button><button class="target mono text-[10px] px-2 py-1 rounded border line" data-index="${i}">${i===state.selectedIndex?'SELECTED':'SELECT'}</button></div></div></div></article>`).join('');
+      document.querySelectorAll('.copy').forEach(b=>b.addEventListener('click',async()=>{await navigator.clipboard.writeText(b.dataset.url);b.textContent='COPIED';setTimeout(()=>b.textContent='COPY',1000);}));document.querySelectorAll('.target').forEach(b=>b.addEventListener('click',()=>selectTarget(Number(b.dataset.index))));}
+    async function generateNotice(){const target=selectedMatch();if(!target)return;clearError();$('#generateNotice').disabled=true;$('#generateNotice').textContent='DRAFTING NOTICE…';try{setStatus('Preparing selected enforcement notice',84,'Legal draft');const response=await fetch('/api/notices',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({route:state.route,...state.report.case,target:noticeTarget(target)})}),payload=await readJson(response);if(!response.ok)throw new Error(payload.detail||'Notice drafting failed.');state.document=payload.document;setStatus('Targeted enforcement draft ready',100,'Legal draft',false);$('#documentTitle').textContent=state.document.title;$('#documentText').textContent=state.document.body;$('#documentPanel').classList.remove('hidden');$('#documentPanel').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){setStatus('Notice needs attention',100,'Request failed',false);showError(e.message);}finally{$('#generateNotice').disabled=false;$('#generateNotice').textContent='GENERATE TARGETED NOTICE';}}
+    function exportPdf(){if(!state.document)return;const {jsPDF}=window.jspdf,pdf=new jsPDF({unit:'mm',format:'a4'}),target=selectedMatch();pdf.setFillColor(8,8,9);pdf.rect(0,0,210,297,'F');pdf.setTextColor(245,245,246);pdf.setFont('helvetica','bold');pdf.setFontSize(16);pdf.text('LIKENESS | IP PROTECTION',18,18);pdf.setFontSize(11);pdf.text(state.document.title,18,28);pdf.setDrawColor(105,71,255);pdf.line(18,34,192,34);pdf.setFont('helvetica','normal');pdf.setFontSize(9.5);let y=44;for(const line of pdf.splitTextToSize(state.document.body,174)){if(y>278){pdf.addPage();pdf.setFillColor(8,8,9);pdf.rect(0,0,210,297,'F');pdf.setTextColor(245,245,246);y=20;}pdf.text(line,18,y);y+=4.5;}pdf.save('likeness-enforcement-draft.pdf');}
+    document.querySelectorAll('.route').forEach(b=>b.addEventListener('click',()=>{state.route=b.dataset.route;document.querySelectorAll('.route').forEach(x=>x.className=`route rounded px-3 py-1.5 ${x===b?'bg-white text-black':'text-zinc-400'}`);}));$('#fileInput').addEventListener('change',e=>chooseFile(e.target.files[0]));['dragover','dragleave','drop'].forEach(name=>$('#dropzone').addEventListener(name,e=>{e.preventDefault();$('#dropzone').classList.toggle('over',name==='dragover');}));$('#dropzone').addEventListener('drop',e=>chooseFile(e.dataTransfer.files[0]));$('#analyzeButton').addEventListener('click',analyze);$('#generateNotice').addEventListener('click',generateNotice);$('#exportPdf').addEventListener('click',exportPdf);$('#startOver').addEventListener('click',()=>location.reload());
   </script>
 </body>
 </html>
