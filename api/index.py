@@ -11,10 +11,10 @@ from typing import Any, Literal
 from urllib.parse import urlparse
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
-APP_DIR = Path(__file__).resolve().parent
+APP_DIR = Path(__file__).resolve().parent.parent
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 ALLOWED_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
@@ -63,14 +63,12 @@ async def upload_public_blob(contents: bytes, filename: str, content_type: str) 
     """Upload a short-lived evidence image to public Vercel Blob for Lens retrieval."""
     if not (os.getenv("BLOB_READ_WRITE_TOKEN") or os.getenv("VERCEL_OIDC_TOKEN")):
         raise RuntimeError("Vercel Blob is not connected to this project.")
-    # Import lazily so local demo mode works without a Blob configuration.
     from vercel.blob import AsyncBlobClient
 
     extension = Path(filename).suffix.lower() or ALLOWED_TYPES[content_type]
-    pathname = f"likeness-intake/{uuid.uuid4().hex}{extension}"
     client = AsyncBlobClient()
     blob = await client.put(
-        pathname,
+        f"likeness-intake/{uuid.uuid4().hex}{extension}",
         contents,
         access="public",
         content_type=content_type,
@@ -105,12 +103,7 @@ async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[
         "and rationale max 18 words). "
         f"Route: {route}. Asset: {json.dumps(asset_context)}. Matches: {json.dumps(matches)}"
     )
-    body = {
-        "model": "gpt-4o",
-        "messages": [{"role": "user", "content": prompt}],
-        "response_format": {"type": "json_object"},
-        "temperature": 0.2,
-    }
+    body = {"model": "gpt-4o", "messages": [{"role": "user", "content": prompt}], "response_format": {"type": "json_object"}, "temperature": 0.2}
     async with httpx.AsyncClient(timeout=25) as client:
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
@@ -132,23 +125,16 @@ def demo_matches(route: str) -> list[dict[str, Any]]:
 def document_text(route: str, asset_name: str, matches: list[dict[str, Any]]) -> dict[str, str]:
     destinations = "\n".join(f"• {match['title']} — {match['url']}" for match in matches)
     if route == "commercial":
-        return {
-            "title": "IP / COPYRIGHT CEASE & DESIST NOTICE",
-            "body": f"Re: Unauthorized use of protected asset — {asset_name}\n\nTo whom it may concern:\n\nThis notice concerns the apparent unauthorized display, reproduction, or commercial use of the above referenced asset at the following locations:\n{destinations}\n\nYou are directed to immediately cease the disputed use, remove all copies under your control, preserve relevant records, and confirm compliance in writing. This automated notice is a draft for rights-holder review and does not constitute legal advice.",
-        }
-    return {
-        "title": "COMPUTER-RELATED IDENTITY THEFT COMPLAINT-AFFIDAVIT",
-        "body": f"Subject asset: {asset_name}\n\nI report suspected unauthorized use of my likeness or identifying image in the following locations:\n{destinations}\n\nI request preservation of relevant account, publication, and access records pending review under applicable cybercrime and data-privacy laws. This generated draft must be reviewed, completed with jurisdictional facts, and executed before filing.",
-    }
+        return {"title": "IP / COPYRIGHT CEASE & DESIST NOTICE", "body": f"Re: Unauthorized use of protected asset — {asset_name}\n\nTo whom it may concern:\n\nThis notice concerns the apparent unauthorized display, reproduction, or commercial use of the above referenced asset at the following locations:\n{destinations}\n\nYou are directed to immediately cease the disputed use, remove all copies under your control, preserve relevant records, and confirm compliance in writing. This automated notice is a draft for rights-holder review and does not constitute legal advice."}
+    return {"title": "COMPUTER-RELATED IDENTITY THEFT COMPLAINT-AFFIDAVIT", "body": f"Subject asset: {asset_name}\n\nI report suspected unauthorized use of my likeness or identifying image in the following locations:\n{destinations}\n\nI request preservation of relevant account, publication, and access records pending review under applicable cybercrime and data-privacy laws. This generated draft must be reviewed, completed with jurisdictional facts, and executed before filing."}
 
 
 @app.get("/")
-async def index() -> FileResponse:
+async def api_home() -> FileResponse:
     return FileResponse(APP_DIR / "index.html", media_type="text/html")
 
 
-@app.post("/api/cases")
-async def create_case(
+async def create_case_impl(
     image: UploadFile = File(...),
     route: Literal["commercial", "personal"] = Form("commercial"),
 ) -> JSONResponse:
@@ -166,8 +152,7 @@ async def create_case(
             matches = await search_google_lens(image_url)
             if not matches:
                 raise HTTPException(404, "Google Lens returned no visual matches for this image.")
-            analysis = await analyze_with_openai({"filename": filename, "image_url": image_url}, matches, route)
-            mode = "live"
+            analysis, mode = await analyze_with_openai({"filename": filename, "image_url": image_url}, matches, route), "live"
         else:
             matches, analysis, mode = demo_matches(route), {}, "demo"
     except HTTPException:
@@ -184,11 +169,10 @@ async def create_case(
         match["timestamp"] = iso_now()
 
     overall = int(analysis.get("overall_confidence", round(sum(match["confidence"] for match in matches) / len(matches))))
-    return JSONResponse({
-        "mode": mode,
-        "matches": matches,
-        "overall_confidence": overall,
-        "summary": analysis.get("summary", "Matches have been triaged and are ready for evidence review."),
-        "document": document_text(route, filename, matches),
-        "source_image_url": image_url or None,
-    })
+    return JSONResponse({"mode": mode, "matches": matches, "overall_confidence": overall, "summary": analysis.get("summary", "Matches have been triaged and are ready for evidence review."), "document": document_text(route, filename, matches), "source_image_url": image_url or None})
+
+
+# Vercel routes api/index.py beneath /api. The alias keeps local ASGI testing and
+# Vercel's forwarded path behavior consistent.
+app.post("/cases")(create_case_impl)
+app.post("/api/cases")(create_case_impl)
