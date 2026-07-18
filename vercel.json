@@ -3,6 +3,9 @@
   "functions": {
     "api/cases.py": {
       "maxDuration": 60
+    },
+    "api/notices.py": {
+      "maxDuration": 60
     }
   }
 }

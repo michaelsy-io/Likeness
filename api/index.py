@@ -1,4 +1,4 @@
-"""Likeness: Vercel-compatible FastAPI evidence-analysis service."""
+"""Likeness: Vercel-compatible evidence and enforcement drafting service."""
 from __future__ import annotations
 
 import json
@@ -8,59 +8,95 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, Field
 
 APP_DIR = Path(__file__).resolve().parent.parent
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_CANDIDATES = 10
 ALLOWED_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
-app = FastAPI(title="Likeness", version="1.0.0")
+app = FastAPI(title="Likeness", version="2.0.0")
 
 
 def iso_now() -> str:
     return datetime.now(timezone.utc).strftime("%b %d, %Y · %H:%M UTC")
 
 
+def bounded_text(value: str | None, limit: int = 280) -> str:
+    return re.sub(r"\s+", " ", (value or "").strip())[:limit]
+
+
 def domain_name(url: str) -> str:
-    return urlparse(url).netloc.removeprefix("www.") or "Unknown source"
+    return urlparse(url).netloc.lower().removeprefix("www.") or "Unknown source"
+
+
+def canonical_url(url: str) -> str:
+    parsed = urlparse(url)
+    return urlunparse((parsed.scheme.lower(), parsed.netloc.lower(), parsed.path.rstrip("/"), "", "", ""))
+
+
+def parse_domains(raw_domains: str) -> set[str]:
+    domains: set[str] = set()
+    for value in re.split(r"[,\n\s]+", raw_domains or ""):
+        if not value:
+            continue
+        candidate = domain_name(value if "://" in value else f"https://{value}")
+        if candidate and candidate != "unknown source":
+            domains.add(candidate)
+    return domains
+
+
+def is_authorized_domain(domain: str, official_domains: set[str]) -> bool:
+    return any(domain == official or domain.endswith(f".{official}") for official in official_domains)
 
 
 def classify_platform(url: str) -> str:
-    host = domain_name(url).lower()
-    if any(value in host for value in ("amazon", "ebay", "etsy", "shop", "store")):
+    host = domain_name(url)
+    if any(value in host for value in ("amazon", "ebay", "etsy", "shop", "store", "shopee", "lazada", "alibaba")):
         return "Marketplace"
-    if any(value in host for value in ("instagram", "facebook", "tiktok", "x.com", "twitter")):
+    if any(value in host for value in ("instagram", "facebook", "tiktok", "x.com", "twitter", "youtube")):
         return "Social platform"
     return "Web publisher"
 
 
-def clean_lens_matches(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    raw = payload.get("visual_matches", []) + payload.get("products", [])
+def clean_lens_matches(payload: dict[str, Any], official_domains: set[str]) -> list[dict[str, Any]]:
+    """Normalize provider records and remove known first-party/duplicate results."""
+    source_groups = (("visual_matches", "Visual match"), ("products", "Product result"))
     seen: set[str] = set()
     matches: list[dict[str, Any]] = []
-    for item in raw[:12]:
-        url = item.get("link") or item.get("product_link") or item.get("source") or ""
-        title = item.get("title") or item.get("product_title") or "Untitled visual match"
-        if not url or url in seen:
-            continue
-        seen.add(url)
-        matches.append({
-            "title": title,
-            "url": url,
-            "domain": domain_name(url),
-            "price": item.get("price") or item.get("extracted_price") or "Not listed",
-            "thumbnail": item.get("thumbnail") or item.get("image"),
-            "platform": classify_platform(url),
-        })
-    return matches
+    for field, source_type in source_groups:
+        for position, item in enumerate(payload.get(field, []), start=1):
+            url = item.get("link") or item.get("product_link") or item.get("source") or ""
+            title = item.get("title") or item.get("product_title") or "Untitled visual match"
+            if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+                continue
+            canonical = canonical_url(url)
+            domain = domain_name(url)
+            if canonical in seen or is_authorized_domain(domain, official_domains):
+                continue
+            seen.add(canonical)
+            matches.append(
+                {
+                    "title": bounded_text(str(title), 220) or "Untitled visual match",
+                    "url": url,
+                    "domain": domain,
+                    "price": item.get("price") or item.get("extracted_price") or "Not listed",
+                    "thumbnail": item.get("thumbnail") or item.get("image"),
+                    "platform": classify_platform(url),
+                    "source_type": source_type,
+                    "provider_rank": position,
+                }
+            )
+    return matches[:30]
 
 
 async def upload_public_blob(contents: bytes, filename: str, content_type: str) -> str:
-    """Upload a short-lived evidence image to public Vercel Blob for Lens retrieval."""
+    """Upload an evidence image to a public URL so Google Lens can retrieve it."""
     if not (os.getenv("BLOB_READ_WRITE_TOKEN") or os.getenv("VERCEL_OIDC_TOKEN")):
         raise RuntimeError("Vercel Blob is not connected to this project.")
     from vercel.blob import AsyncBlobClient
@@ -78,33 +114,30 @@ async def upload_public_blob(contents: bytes, filename: str, content_type: str) 
     return str(blob.url)
 
 
-async def search_google_lens(image_url: str) -> list[dict[str, Any]]:
+async def search_google_lens(image_url: str, official_domains: set[str]) -> list[dict[str, Any]]:
     api_key = os.getenv("SERPAPI_API_KEY")
-    if not api_key:
-        return []
-    async with httpx.AsyncClient(timeout=25) as client:
+    async with httpx.AsyncClient(timeout=35) as client:
         response = await client.get(
             "https://serpapi.com/search.json",
             params={"engine": "google_lens", "url": image_url, "api_key": api_key},
         )
         response.raise_for_status()
-    return clean_lens_matches(response.json())
+    return clean_lens_matches(response.json(), official_domains)
 
 
-async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[str, Any]], route: str) -> dict[str, Any]:
+def openai_model() -> str:
+    return os.getenv("OPENAI_MODEL", "gpt-4o")
+
+
+async def openai_json(prompt: str) -> dict[str, Any]:
     api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        return {}
-    prompt = (
-        "You are Likeness, an evidence-oriented IP and privacy risk analyst. "
-        "Analyze visual-search metadata only; do not claim a legal conclusion. "
-        "Return strict JSON with overall_confidence (integer 0-100), summary (one short sentence), "
-        "and matches (same order, each with confidence integer 0-100, threat_level Critical/High/Moderate/Low, "
-        "and rationale max 18 words). "
-        f"Route: {route}. Asset: {json.dumps(asset_context)}. Matches: {json.dumps(matches)}"
-    )
-    body = {"model": "gpt-4o", "messages": [{"role": "user", "content": prompt}], "response_format": {"type": "json_object"}, "temperature": 0.2}
-    async with httpx.AsyncClient(timeout=25) as client:
+    body = {
+        "model": openai_model(),
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.2,
+    }
+    async with httpx.AsyncClient(timeout=45) as client:
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}"},
@@ -114,31 +147,92 @@ async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[
     return json.loads(response.json()["choices"][0]["message"]["content"])
 
 
-def demo_matches(route: str) -> list[dict[str, Any]]:
-    label = "unauthorized product listing" if route == "commercial" else "identity impersonation"
-    return [
-        {"title": f"Potential {label} — marketplace listing", "url": "https://example-marketplace.test/listing/8432", "domain": "example-marketplace.test", "price": "$89.00", "thumbnail": None, "platform": "Marketplace", "confidence": 91, "threat_level": "High", "rationale": "Visual composition and subject placement show a strong similarity signal."},
-        {"title": f"Potential {label} — social repost", "url": "https://example-social.test/p/9981", "domain": "example-social.test", "price": "Not listed", "thumbnail": None, "platform": "Social platform", "confidence": 76, "threat_level": "Moderate", "rationale": "Potential reuse detected; review the original post and account ownership."},
+async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[str, Any]], route: str) -> dict[str, Any]:
+    evidence = [
+        {key: match[key] for key in ("title", "url", "domain", "price", "platform", "source_type", "provider_rank")}
+        for match in matches
     ]
+    prompt = (
+        "You are Likeness, an evidence-oriented IP risk triage assistant. "
+        "Assess only the supplied search metadata and stated ownership information. "
+        "Do not claim that infringement is legally proven and do not invent facts or laws. "
+        "Return strict JSON with overall_confidence (integer 0-100), summary (one concise sentence), "
+        "and matches in the same order. Each match requires confidence (integer 0-100), "
+        "threat_level (Critical, High, Moderate, or Low), rationale (max 24 words), "
+        "and evidence_basis (max 18 words). "
+        f"Route: {route}. Asset context: {json.dumps(asset_context)}. Candidate records: {json.dumps(evidence)}"
+    )
+    return await openai_json(prompt)
 
 
 def missing_live_configuration() -> list[str]:
-    """Return safe configuration labels without ever exposing secret values."""
-    missing = [
-        name
-        for name in ("SERPAPI_API_KEY", "OPENAI_API_KEY")
-        if not os.getenv(name)
-    ]
+    """Return safe configuration labels without exposing secret values."""
+    missing = [name for name in ("SERPAPI_API_KEY", "OPENAI_API_KEY") if not os.getenv(name)]
     if not (os.getenv("BLOB_READ_WRITE_TOKEN") or os.getenv("VERCEL_OIDC_TOKEN")):
         missing.append("a connected Public Vercel Blob store")
     return missing
 
 
-def document_text(route: str, asset_name: str, matches: list[dict[str, Any]]) -> dict[str, str]:
-    destinations = "\n".join(f"• {match['title']} — {match['url']}" for match in matches)
-    if route == "commercial":
-        return {"title": "IP / COPYRIGHT CEASE & DESIST NOTICE", "body": f"Re: Unauthorized use of protected asset — {asset_name}\n\nTo whom it may concern:\n\nThis notice concerns the apparent unauthorized display, reproduction, or commercial use of the above referenced asset at the following locations:\n{destinations}\n\nYou are directed to immediately cease the disputed use, remove all copies under your control, preserve relevant records, and confirm compliance in writing. This automated notice is a draft for rights-holder review and does not constitute legal advice."}
-    return {"title": "COMPUTER-RELATED IDENTITY THEFT COMPLAINT-AFFIDAVIT", "body": f"Subject asset: {asset_name}\n\nI report suspected unauthorized use of my likeness or identifying image in the following locations:\n{destinations}\n\nI request preservation of relevant account, publication, and access records pending review under applicable cybercrime and data-privacy laws. This generated draft must be reviewed, completed with jurisdictional facts, and executed before filing."}
+def apply_insights(matches: list[dict[str, Any]], analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    insights = analysis.get("matches", [])
+    for index, match in enumerate(matches):
+        insight = insights[index] if index < len(insights) and isinstance(insights[index], dict) else {}
+        try:
+            confidence = int(insight.get("confidence", 45))
+        except (TypeError, ValueError):
+            confidence = 45
+        match["confidence"] = max(0, min(confidence, 100))
+        threat = str(insight.get("threat_level", "Moderate")).title()
+        match["threat_level"] = threat if threat in {"Critical", "High", "Moderate", "Low"} else "Moderate"
+        match["rationale"] = bounded_text(str(insight.get("rationale", "Similarity signal requires human review.")), 180)
+        match["evidence_basis"] = bounded_text(str(insight.get("evidence_basis", "Search-result metadata.")), 140)
+        match["timestamp"] = iso_now()
+    return sorted(matches, key=lambda item: (-item["confidence"], item["provider_rank"]))[:MAX_CANDIDATES]
+
+
+class NoticeTarget(BaseModel):
+    title: str = Field(max_length=240)
+    url: str = Field(max_length=2048)
+    domain: str = Field(max_length=255)
+    platform: str = Field(max_length=80)
+    price: str = Field(default="Not listed", max_length=80)
+    confidence: int = Field(ge=0, le=100)
+    threat_level: str = Field(max_length=20)
+    rationale: str = Field(max_length=280)
+    timestamp: str = Field(max_length=80)
+
+
+class NoticeRequest(BaseModel):
+    route: Literal["commercial", "personal"]
+    asset_name: str = Field(max_length=240)
+    brand_name: str = Field(default="", max_length=160)
+    rights_holder: str = Field(default="", max_length=200)
+    rights_basis: str = Field(default="", max_length=400)
+    jurisdiction: str = Field(default="", max_length=120)
+    target: NoticeTarget
+
+
+async def draft_notice_with_openai(request: NoticeRequest) -> dict[str, str]:
+    target = request.target.model_dump()
+    prompt = (
+        "Draft a detailed, professional enforcement notice as plain text for human legal review. "
+        "It is not legal advice, must not state that infringement is proven, and must not fabricate statutes, "
+        "registration numbers, addresses, or platform procedures. Use the supplied jurisdiction only as context. "
+        "Address it to the selected website/platform, identify the selected listing URL, request preservation of records, "
+        "removal or disabling of the disputed content, a written response, and a reasonable response period expressed "
+        "as a placeholder. Include sections for rights-holder details, factual basis, requested action, evidence preservation, "
+        "reservation of rights, and signature placeholders. End with a clear legal-review disclaimer. "
+        "Return strict JSON with title and body. Body should be 650-1000 words. "
+        f"Case route: {request.route}. Asset: {request.asset_name}. Brand: {request.brand_name}. "
+        f"Rights holder: {request.rights_holder}. Rights basis: {request.rights_basis}. "
+        f"Jurisdiction: {request.jurisdiction}. Selected target: {json.dumps(target)}"
+    )
+    payload = await openai_json(prompt)
+    title = bounded_text(str(payload.get("title", "DRAFT ENFORCEMENT NOTICE")), 160)
+    body = str(payload.get("body", "")).strip()
+    if not body:
+        raise RuntimeError("The drafting service returned an empty notice.")
+    return {"title": title or "DRAFT ENFORCEMENT NOTICE", "body": body[:9000]}
 
 
 @app.get("/")
@@ -146,9 +240,20 @@ async def api_home() -> FileResponse:
     return FileResponse(APP_DIR / "index.html", media_type="text/html")
 
 
+async def health_impl() -> JSONResponse:
+    missing = missing_live_configuration()
+    return JSONResponse({"live_ready": not missing, "missing": missing})
+
+
 async def create_case_impl(
     image: UploadFile = File(...),
     route: Literal["commercial", "personal"] = Form("commercial"),
+    asset_name: str = Form(""),
+    brand_name: str = Form(""),
+    rights_holder: str = Form(""),
+    rights_basis: str = Form(""),
+    jurisdiction: str = Form(""),
+    official_domains: str = Form(""),
 ) -> JSONResponse:
     if image.content_type not in ALLOWED_TYPES:
         raise HTTPException(415, "Upload a JPG, PNG, or WebP image.")
@@ -158,38 +263,69 @@ async def create_case_impl(
     filename = re.sub(r"[^A-Za-z0-9._-]", "_", image.filename or "asset")
     missing_configuration = missing_live_configuration()
     if missing_configuration:
-        missing_text = ", ".join(missing_configuration)
         raise HTTPException(
             503,
             "Live analysis is not configured. Add "
-            f"{missing_text} in this Vercel project's Production settings, then redeploy.",
+            f"{', '.join(missing_configuration)} in this Vercel project's Production settings, then redeploy.",
         )
-    image_url = ""
+
+    context = {
+        "asset_name": bounded_text(asset_name, 240) or filename,
+        "brand_name": bounded_text(brand_name, 160),
+        "rights_holder": bounded_text(rights_holder, 200),
+        "rights_basis": bounded_text(rights_basis, 400),
+        "jurisdiction": bounded_text(jurisdiction, 120),
+    }
     try:
         image_url = await upload_public_blob(contents, filename, image.content_type)
-        matches = await search_google_lens(image_url)
-        if not matches:
-            raise HTTPException(404, "Google Lens returned no visual matches for this image.")
-        analysis, mode = await analyze_with_openai({"filename": filename, "image_url": image_url}, matches, route), "live"
+        candidates = await search_google_lens(image_url, parse_domains(official_domains))
+        if not candidates:
+            raise HTTPException(404, "Google Lens found no candidate listings after approved domains were excluded.")
+        analysis = await analyze_with_openai(context, candidates, route)
+        matches = apply_insights(candidates, analysis)
     except HTTPException:
         raise
+    except httpx.HTTPStatusError as exc:
+        provider = "SerpApi" if "serpapi.com" in str(exc.request.url) else "OpenAI"
+        raise HTTPException(502, f"{provider} rejected the secure analysis request. Check that provider key and quota.") from exc
     except Exception as exc:
         raise HTTPException(502, f"Secure analysis provider error: {str(exc)[:160]}") from exc
 
-    insights = analysis.get("matches", [])
-    for index, match in enumerate(matches):
-        insight = insights[index] if index < len(insights) else {}
-        match["confidence"] = int(insight.get("confidence", match.get("confidence", 68)))
-        match["threat_level"] = insight.get("threat_level", match.get("threat_level", "Moderate"))
-        match["rationale"] = insight.get("rationale", match.get("rationale", "Similarity requires manual evidence review."))
-        match["timestamp"] = iso_now()
+    average = round(sum(match["confidence"] for match in matches) / len(matches))
+    try:
+        overall = int(analysis.get("overall_confidence", average))
+    except (TypeError, ValueError):
+        overall = average
+    return JSONResponse(
+        {
+            "mode": "live",
+            "case": context,
+            "matches": matches,
+            "overall_confidence": max(0, min(overall, 100)),
+            "summary": bounded_text(str(analysis.get("summary", "Candidate listings are ready for rights-holder review.")), 260),
+            "source_image_url": image_url,
+        }
+    )
 
-    overall = int(analysis.get("overall_confidence", round(sum(match["confidence"] for match in matches) / len(matches))))
-    return JSONResponse({"mode": mode, "matches": matches, "overall_confidence": overall, "summary": analysis.get("summary", "Matches have been triaged and are ready for evidence review."), "document": document_text(route, filename, matches), "source_image_url": image_url or None})
+
+async def create_notice_impl(request: NoticeRequest) -> JSONResponse:
+    missing = [name for name in ("OPENAI_API_KEY",) if not os.getenv(name)]
+    if missing:
+        raise HTTPException(503, f"Notice drafting requires {', '.join(missing)} in Production settings.")
+    try:
+        document = await draft_notice_with_openai(request)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(502, "OpenAI rejected the notice drafting request. Check the provider key and quota.") from exc
+    except Exception as exc:
+        raise HTTPException(502, f"Secure notice drafting error: {str(exc)[:160]}") from exc
+    return JSONResponse({"document": document, "target_url": request.target.url})
 
 
-# Vercel routes api/index.py beneath /api. The alias keeps local ASGI testing and
-# Vercel's forwarded path behavior consistent.
+# Each callable entrypoint imports this app. The aliases accommodate Vercel's
+# per-file routing and local FastAPI testing.
 app.post("/cases")(create_case_impl)
 app.post("/api/cases")(create_case_impl)
-app.post("/")(create_case_impl)
+app.post("/notices")(create_notice_impl)
+app.post("/api/notices")(create_notice_impl)
+app.get("/health")(health_impl)
+app.get("/api/health")(health_impl)
