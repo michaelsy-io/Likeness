@@ -176,3 +176,4 @@ async def create_case_impl(
 # Vercel's forwarded path behavior consistent.
 app.post("/cases")(create_case_impl)
 app.post("/api/cases")(create_case_impl)
+app.post("/")(create_case_impl)
