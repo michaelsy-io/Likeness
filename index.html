@@ -50,7 +50,7 @@
         <div id="dropCopy" class="text-center relative">
           <div class="w-12 h-12 rounded-xl thin mx-auto mb-4 grid place-content-center bg-zinc-900/80 text-lg">↑</div>
           <p class="font-medium">Drop a product or asset image</p>
-          <p class="text-sm text-zinc-500 mt-1">JPG, PNG or WebP · 10 MB maximum</p>
+          <p class="text-sm text-zinc-500 mt-1">JPG, PNG or WebP · 25 MB maximum</p>
         </div>
       </label>
 
@@ -65,7 +65,7 @@
         <label class="block text-xs text-zinc-400 mt-3">Rights basis / registration details<textarea id="rightsBasis" maxlength="400" rows="2" placeholder="e.g. Original product photography; registered mark no. …" class="mt-1.5 w-full resize-none rounded-lg thin bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600"></textarea></label>
       </section>
       <button id="analyzeButton" disabled class="mt-5 w-full py-3 rounded-xl bg-indigo-400 text-zinc-950 font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition hover:bg-indigo-300">Find candidate listings</button>
-      <p class="text-[11px] text-zinc-600 mt-4 text-center">Searches run server-side. Your API credentials never enter the browser. A unique public image URL is provided to Google Lens for the search.</p>
+      <p class="text-[11px] text-zinc-600 mt-4 text-center">Images upload directly to protected Blob storage; searches and AI analysis run server-side. API credentials never enter the browser.</p>
     </section>
 
     <section id="dashboard" class="hidden">
@@ -105,7 +105,7 @@
     function chooseFile(file) {
       if (!file) return;
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return showError('Please use a JPG, PNG, or WebP image.');
-      if (file.size > 10 * 1024 * 1024) return showError('Images must be 10 MB or smaller.');
+      if (file.size > 25 * 1024 * 1024) return showError('Images must be 25 MB or smaller.');
       state.file = file;
       if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
       state.previewUrl = URL.createObjectURL(file);
@@ -129,11 +129,18 @@
       if (!state.file) return;
       $('#intake').classList.add('hidden'); $('#dashboard').classList.remove('hidden'); $('#results').classList.add('hidden'); $('#documentPanel').classList.add('hidden'); clearError();
       try {
-        setStatus('Uploading product evidence', 20, 'Secure relay');
-        const form = new FormData(); form.append('image', state.file); form.append('route', state.route);
+        setStatus('Uploading product evidence securely', 16, 'Secure upload');
+        const { upload } = await import('https://esm.sh/@vercel/blob@2.1.0/client');
+        const cleanFilename = state.file.name.replace(/[^A-Za-z0-9._-]/g, '_');
+        const blob = await upload(`likeness-intake/${crypto.randomUUID()}-${cleanFilename}`, state.file, {
+          access: 'public', handleUploadUrl: '/api/upload',
+          multipart: state.file.size > 4 * 1024 * 1024,
+          onUploadProgress: progress => setStatus(`Uploading product evidence (${progress.percentage}%)`, Math.max(16, Math.round(progress.percentage * .42)), 'Secure upload'),
+        });
+        const form = new FormData(); form.append('image_url', blob.url); form.append('route', state.route);
         form.append('asset_name', field('#assetName')); form.append('brand_name', field('#brandName')); form.append('rights_holder', field('#brandName'));
         form.append('rights_basis', field('#rightsBasis')); form.append('jurisdiction', field('#jurisdiction')); form.append('official_domains', field('#officialDomains'));
-        setStatus('Searching visual listings and triaging candidates', 55, 'Live analysis');
+        setStatus('Searching visual listings and triaging candidates', 58, 'Live analysis');
         const response = await fetch('/api/cases', { method: 'POST', body: form }); const payload = await readJson(response);
         if (!response.ok) throw new Error(payload.detail || 'Secure asset intake failed.');
         state.report = payload; state.selectedIndex = payload.matches.length ? 0 : null; state.document = null;

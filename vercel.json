@@ -6,6 +6,9 @@
     },
     "api/notices.py": {
       "maxDuration": 60
+    },
+    "api/upload.js": {
+      "maxDuration": 20
     }
   }
 }

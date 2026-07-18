@@ -4,21 +4,16 @@ from __future__ import annotations
 import json
 import os
 import re
-import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse, urlunparse
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, Form, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-APP_DIR = Path(__file__).resolve().parent.parent
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_CANDIDATES = 10
-ALLOWED_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
 app = FastAPI(title="Likeness", version="2.0.0")
 
@@ -95,28 +90,9 @@ def clean_lens_matches(payload: dict[str, Any], official_domains: set[str]) -> l
     return matches[:30]
 
 
-async def upload_public_blob(contents: bytes, filename: str, content_type: str) -> str:
-    """Upload an evidence image to a public URL so Google Lens can retrieve it."""
-    if not (os.getenv("BLOB_READ_WRITE_TOKEN") or os.getenv("VERCEL_OIDC_TOKEN")):
-        raise RuntimeError("Vercel Blob is not connected to this project.")
-    from vercel.blob import AsyncBlobClient
-
-    extension = Path(filename).suffix.lower() or ALLOWED_TYPES[content_type]
-    client = AsyncBlobClient()
-    blob = await client.put(
-        f"likeness-intake/{uuid.uuid4().hex}{extension}",
-        contents,
-        access="public",
-        content_type=content_type,
-        add_random_suffix=True,
-        cache_control_max_age=3600,
-    )
-    return str(blob.url)
-
-
 async def search_google_lens(image_url: str, official_domains: set[str]) -> list[dict[str, Any]]:
     api_key = os.getenv("SERPAPI_API_KEY")
-    async with httpx.AsyncClient(timeout=35) as client:
+    async with httpx.AsyncClient(timeout=18) as client:
         response = await client.get(
             "https://serpapi.com/search.json",
             params={"engine": "google_lens", "url": image_url, "api_key": api_key},
@@ -137,7 +113,7 @@ async def openai_json(prompt: str) -> dict[str, Any]:
         "response_format": {"type": "json_object"},
         "temperature": 0.2,
     }
-    async with httpx.AsyncClient(timeout=45) as client:
+    async with httpx.AsyncClient(timeout=24) as client:
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}"},
@@ -168,9 +144,23 @@ async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[
 def missing_live_configuration() -> list[str]:
     """Return safe configuration labels without exposing secret values."""
     missing = [name for name in ("SERPAPI_API_KEY", "OPENAI_API_KEY") if not os.getenv(name)]
-    if not (os.getenv("BLOB_READ_WRITE_TOKEN") or os.getenv("VERCEL_OIDC_TOKEN")):
-        missing.append("a connected Public Vercel Blob store")
+    if not os.getenv("BLOB_READ_WRITE_TOKEN"):
+        missing.append("BLOB_READ_WRITE_TOKEN from a connected Public Vercel Blob store")
     return missing
+
+
+def validate_likeness_blob_url(value: str) -> str:
+    """Accept only a public Likeness intake URL, never an arbitrary remote URL."""
+    url = bounded_text(value, 2048)
+    parsed = urlparse(url)
+    host = parsed.netloc.lower()
+    if (
+        parsed.scheme != "https"
+        or not host.endswith(".public.blob.vercel-storage.com")
+        or not parsed.path.startswith("/likeness-intake/")
+    ):
+        raise HTTPException(422, "Upload an image through Likeness before starting analysis.")
+    return url
 
 
 def apply_insights(matches: list[dict[str, Any]], analysis: dict[str, Any]) -> list[dict[str, Any]]:
@@ -237,7 +227,7 @@ async def draft_notice_with_openai(request: NoticeRequest) -> dict[str, str]:
 
 @app.get("/")
 async def api_home() -> FileResponse:
-    return FileResponse(APP_DIR / "index.html", media_type="text/html")
+    raise HTTPException(404, "The Likeness web interface is served from the project root.")
 
 
 async def health_impl() -> JSONResponse:
@@ -246,7 +236,7 @@ async def health_impl() -> JSONResponse:
 
 
 async def create_case_impl(
-    image: UploadFile = File(...),
+    image_url: str = Form(...),
     route: Literal["commercial", "personal"] = Form("commercial"),
     asset_name: str = Form(""),
     brand_name: str = Form(""),
@@ -255,12 +245,6 @@ async def create_case_impl(
     jurisdiction: str = Form(""),
     official_domains: str = Form(""),
 ) -> JSONResponse:
-    if image.content_type not in ALLOWED_TYPES:
-        raise HTTPException(415, "Upload a JPG, PNG, or WebP image.")
-    contents = await image.read(MAX_UPLOAD_BYTES + 1)
-    if len(contents) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "Images must be 10 MB or smaller.")
-    filename = re.sub(r"[^A-Za-z0-9._-]", "_", image.filename or "asset")
     missing_configuration = missing_live_configuration()
     if missing_configuration:
         raise HTTPException(
@@ -270,14 +254,14 @@ async def create_case_impl(
         )
 
     context = {
-        "asset_name": bounded_text(asset_name, 240) or filename,
+        "asset_name": bounded_text(asset_name, 240) or "Uploaded asset",
         "brand_name": bounded_text(brand_name, 160),
         "rights_holder": bounded_text(rights_holder, 200),
         "rights_basis": bounded_text(rights_basis, 400),
         "jurisdiction": bounded_text(jurisdiction, 120),
     }
     try:
-        image_url = await upload_public_blob(contents, filename, image.content_type)
+        image_url = validate_likeness_blob_url(image_url)
         candidates = await search_google_lens(image_url, parse_domains(official_domains))
         if not candidates:
             raise HTTPException(404, "Google Lens found no candidate listings after approved domains were excluded.")
