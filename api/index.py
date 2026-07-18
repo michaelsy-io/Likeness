@@ -123,11 +123,18 @@ def openai_model() -> str:
     return os.getenv("OPENAI_MODEL", "gpt-4o")
 
 
-async def openai_json(prompt: str) -> dict[str, Any]:
+async def openai_json(prompt: str, image_urls: list[str] | None = None) -> dict[str, Any]:
     api_key = os.getenv("OPENAI_API_KEY")
+    content: str | list[dict[str, Any]] = prompt
+    if image_urls:
+        content = [{"type": "text", "text": prompt}]
+        content.extend(
+            {"type": "image_url", "image_url": {"url": url, "detail": "high"}}
+            for url in image_urls
+        )
     body = {
         "model": openai_model(),
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": content}],
         "response_format": {"type": "json_object"},
         "temperature": 0.2,
     }
@@ -141,24 +148,43 @@ async def openai_json(prompt: str) -> dict[str, Any]:
     return json.loads(response.json()["choices"][0]["message"]["content"])
 
 
-async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[str, Any]], route: str) -> dict[str, Any]:
+async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[str, Any]], route: str, source_image_url: str) -> dict[str, Any]:
     evidence = [
         {key: match[key] for key in ("title", "url", "domain", "price", "platform", "source_type", "provider_rank")}
         for match in matches
     ]
+    vision_urls = [source_image_url]
+    for match in matches[:10]:
+        thumbnail = match.get("thumbnail")
+        if isinstance(thumbnail, str) and thumbnail.startswith("https://"):
+            vision_urls.append(thumbnail)
     prompt = (
         "You are Likeness, an evidence-oriented IP risk triage assistant. "
-        "Assess only the supplied search metadata and stated ownership information. "
+        "The first image is the rights-holder's uploaded asset. Subsequent images, in candidate-record order where available, are returned listing thumbnails. "
+        "Assess visual and metadata similarity only from the supplied images, search metadata, and stated ownership information. "
         "Do not claim that infringement is legally proven and do not invent facts or laws. "
+        "Confidence is a visual-likeness triage score, not a probability of legal infringement. Calibrate it strictly: 90-100 only for the same image, clearly identical product, or distinctive design; "
+        "75-89 for substantial visual/design overlap; 50-74 for general category resemblance or incomplete visual evidence; 0-49 for weak or unrelated similarity. "
+        "A listing may be visually identical but not a legal threat if it is authorized; use the stated authorized domains/sellers as context. "
         "Return strict JSON with overall_confidence (integer 0-100), summary (2-3 concise sentences), "
         "risk_factors (array of 2-4 concise evidence-based signals), recommended_actions (array of 2-4 practical next steps), "
         "and limitations (array of 1-3 evidence limitations). "
         "and matches in the same order. Each match requires confidence (integer 0-100), "
-        "threat_level (Critical, High, Moderate, or Low), rationale (max 24 words), "
-        "and evidence_basis (max 18 words). "
+        "threat_level (Critical, High, Moderate, or Low), visual_similarity (integer 0-100), title_similarity (integer 0-100), "
+        "metadata_similarity (integer 0-100), similarities (array of 2-4 concise concrete observations), differences (array of 0-3 concrete observations), "
+        "rationale (max 32 words), and evidence_basis (max 28 words). "
         f"Route: {route}. Asset context: {json.dumps(asset_context)}. Candidate records: {json.dumps(evidence)}"
     )
-    return await openai_json(prompt)
+    try:
+        analysis = await openai_json(prompt, vision_urls if len(vision_urls) > 1 else None)
+        analysis["comparison_mode"] = "Vision and metadata" if len(vision_urls) > 1 else "Metadata only"
+        return analysis
+    except httpx.HTTPStatusError:
+        # A remote thumbnail may deny third-party fetches. Preserve a useful
+        # metadata-only result instead of failing the whole case.
+        analysis = await openai_json(prompt)
+        analysis["comparison_mode"] = "Metadata only (one or more listing images were unavailable)"
+        return analysis
 
 
 def missing_live_configuration() -> list[str]:
@@ -196,6 +222,16 @@ def apply_insights(matches: list[dict[str, Any]], analysis: dict[str, Any]) -> l
         match["threat_level"] = threat if threat in {"Critical", "High", "Moderate", "Low"} else "Moderate"
         match["rationale"] = bounded_text(str(insight.get("rationale", "Similarity signal requires human review.")), 180)
         match["evidence_basis"] = bounded_text(str(insight.get("evidence_basis", "Search-result metadata.")), 140)
+        for field in ("visual_similarity", "title_similarity", "metadata_similarity"):
+            try:
+                score = int(insight.get(field, confidence if field == "visual_similarity" else 0))
+            except (TypeError, ValueError):
+                score = confidence if field == "visual_similarity" else 0
+            match[field] = max(0, min(score, 100))
+        match["similarities"] = analysis_list(
+            insight.get("similarities"), 4, ["Visual and listing metadata require rights-holder review."]
+        )
+        match["differences"] = analysis_list(insight.get("differences"), 3, [])
         match["timestamp"] = iso_now()
     return sorted(matches, key=lambda item: (-item["confidence"], item["provider_rank"]))[:MAX_CANDIDATES]
 
@@ -210,6 +246,7 @@ def analysis_list(value: Any, limit: int, fallback: list[str]) -> list[str]:
 def analysis_brief(analysis: dict[str, Any]) -> dict[str, Any]:
     return {
         "summary": bounded_text(str(analysis.get("summary", "Candidate listings are ready for rights-holder review.")), 650),
+        "comparison_mode": bounded_text(str(analysis.get("comparison_mode", "Metadata only")), 100),
         "risk_factors": analysis_list(analysis.get("risk_factors"), 4, ["Visual-search results require comparison against the rights holder's original asset."]),
         "recommended_actions": analysis_list(analysis.get("recommended_actions"), 4, ["Review the selected listing and preserve a dated copy of the page before taking action."]),
         "limitations": analysis_list(analysis.get("limitations"), 3, ["This triage is based on public search-result metadata and does not determine legal liability."]),
@@ -315,7 +352,7 @@ async def create_case_impl(
         candidates = await search_google_lens(image_url, parse_domains(official_domains))
         if not candidates:
             raise HTTPException(404, "Google Lens found no candidate listings after approved domains were excluded.")
-        analysis = await analyze_with_openai(context, candidates, route)
+        analysis = await analyze_with_openai(context, candidates, route, image_url)
         matches = apply_insights(candidates, analysis)
     except HTTPException:
         raise
