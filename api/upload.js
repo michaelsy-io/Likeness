@@ -1,6 +1,7 @@
 import { handleUpload } from '@vercel/blob/client';
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
+const uploadToken = process.env.PUBLIC_INTAKE_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
 
 export default async function handler(request) {
   if (request.method !== 'POST') {
@@ -12,6 +13,7 @@ export default async function handler(request) {
     const result = await handleUpload({
       body,
       request,
+      token: uploadToken,
       onBeforeGenerateToken: async (pathname) => {
         if (!pathname.startsWith('likeness-intake/')) {
           throw new Error('Invalid upload destination.');

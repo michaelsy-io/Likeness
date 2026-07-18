@@ -144,8 +144,8 @@ async def analyze_with_openai(asset_context: dict[str, str], matches: list[dict[
 def missing_live_configuration() -> list[str]:
     """Return safe configuration labels without exposing secret values."""
     missing = [name for name in ("SERPAPI_API_KEY", "OPENAI_API_KEY") if not os.getenv(name)]
-    if not os.getenv("BLOB_READ_WRITE_TOKEN"):
-        missing.append("BLOB_READ_WRITE_TOKEN from a connected Public Vercel Blob store")
+    if not (os.getenv("PUBLIC_INTAKE_READ_WRITE_TOKEN") or os.getenv("BLOB_READ_WRITE_TOKEN")):
+        missing.append("a read-write token from the connected Public Vercel Blob store")
     return missing
 
 
